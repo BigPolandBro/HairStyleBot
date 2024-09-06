@@ -166,14 +166,14 @@ async def generate_photo(message, state):
     else:
         file_url = user_dict["file_url"]
         print("before query")
-        await message.edit_text("Идет генерация")
+        sent_message = await message.edit_text("Идет генерация")
         task = asyncio.create_task(change_hairstyle(file_url, user_dict["haircut"], user_dict["color"]))
         while not task.done():
-            await message.edit_text("Идет генерация.")
+            await sent_message.edit_text("Идет генерация.")
             time.sleep(1)
-            await message.edit_text("Идет генерация..")
+            await sent_message.edit_text("Идет генерация..")
             time.sleep(1)
-            await message.edit_text("Идет генерация...")
+            await sent_message.edit_text("Идет генерация...")
             time.sleep(1)
         response = await task
         print("after query")
@@ -182,7 +182,8 @@ async def generate_photo(message, state):
         if response.startswith("Error"):
             await message.reply(response)
         else:
-            await message.edit_text(response)
+            await sent_message.delete()
+            await message.answer_photo(photo=response)
         await state.set_state(CurrentFunction.wait_photo)
         user_dict["gen_cnt"] = dict()
         user_dict["gen_cnt"][datetime.now().date()] = 1
