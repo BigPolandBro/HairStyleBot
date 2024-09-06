@@ -8,8 +8,9 @@ import os
 import requests
 import time
 from io import BytesIO
+from datetime import datetime
 
-API_KEY = 's6l0K1wSbI2rSY0ntFlPEsRqbXdB7TXYvyCLxZi4jhMEkgrV6zNHezm9ULGJcn3O'
+API_KEY = 'XXjL90yUJYO2RsocHN0pFeS2ZGhNKLKGhq3OeEirWQ146Id5mxMlAnPVCwbEl4Jo'
 haircut_list = [
     "BuzzCut",
     "UnderCut",
@@ -44,13 +45,8 @@ class CurrentFunction(StatesGroup):
     generating_photo = State()
 
 
-async def query_picture_model_(image_url: str, hair_style: str, color: str) -> str:
-    try:
-        return change_hairstyle(image_url, hair_style, color)
-    except Exception as e:
-        return f"Error querying picture model: {e}"
 
-def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
+async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
     # Скачиваем изображение по URL
     response = requests.get(image_url)
     if response.status_code != 200:
@@ -98,7 +94,6 @@ def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
                         image_url = status_data["data"]["images"][0].replace('\\/', '/')
                         return image_url
                     else:
-                        print("Задача не завершена, повторное ожидание...")
                         time.sleep(5)
                 else:
                     print(f"Ошибка при проверке статуса: {status_response.status_code}")
@@ -107,6 +102,7 @@ def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
             print("Не удалось получить task_id")
     else:
         print(f"Ошибка {response.status_code}: {response.text}")
+        return "https://avatars.mds.yandex.net/i?id=2ced998169ff1da0d4087152330c122d_l-5666582-images-thumbs&n=13"
 
 
 
@@ -159,22 +155,46 @@ async def set_color(callback, state):
 
 
 async def choosing_color(message, state):
-    await message.reply("Выбери цвет", reply_markup=create_inline_keyboard(color_list, "color"))
+    await message.edit_text("Выбери цвет", reply_markup=create_inline_keyboard(color_list, "color"))
 
 
 async def generate_photo(message, state):
     user_dict = await state.get_data()
-    file_url = user_dict["file_url"]
-    print("before query")
-    response = await query_picture_model_(file_url, user_dict["haircut"], user_dict["color"])
-    print("after query")
-    print(file_url)
-    print(response)
-    if response.startswith("Error"):
-        await message.reply(response)
+    print(user_dict)
+    if user_dict.get("gen_cnt", None) and user_dict["gen_cnt"].get(datetime.now().date(), 0) >= 1:
+        await message.reply("На сегодня лимит генераций исчерпан")
     else:
-        await message.reply_photo(response)
+        file_url = user_dict["file_url"]
+        print("before query")
+        task = asyncio.create_task(change_hairstyle(file_url, user_dict["haircut"], user_dict["color"]))
+        while not task.done():
+            await message.edit_text("Идет генерация")
+            time.sleep(1)
+            await message.edit_text("Идет генерация.")
+            time.sleep(1)
+            await message.edit_text("Идет генерация..")
+            time.sleep(1)
+            await message.edit_text("Идет генерация...")
+            time.sleep(1)
+        response = await task
+        print("after query")
+        print(file_url)
+        print(response)
+        if response.startswith("Error"):
+            await message.reply(response)
+        else:
+            await message.edit_text(response)
+        await state.set_state(CurrentFunction.wait_photo)
+        user_dict["gen_cnt"] = dict()
+        user_dict["gen_cnt"][datetime.now().date()] = 1
+        await state.update_data(gen_cnt=user_dict["gen_cnt"])
+
+
+@dp.message()
+async def default_reply(message: types.Message, state) -> None:
+    await message.reply('Пришли мне фото')
     await state.set_state(CurrentFunction.wait_photo)
+
 
 async def main():
     await dp.start_polling(bot)
