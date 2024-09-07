@@ -9,6 +9,15 @@ import requests
 import time
 from io import BytesIO
 from datetime import datetime
+from APIKeyManager import APIKeyManager
+
+api_keys_list = ['XXjL90yUJYO2RsocHN0pFeS2ZGhNKLKGhq3OeEirWQ146Id5mxMlAnPVCwbEl4Jo',
+                 'vjSdUng03HfgqVuMrlmJibDFA7KhVRUoeYFPP3qiBzT2wHwzWLZLGackExsYJRlf',
+                 '0coH412v8qKpVoYJBAi59wesW9MdgGYO36Vrx5qRZ2SckUXIaEAsQrChZtxjOEQF',
+                 'j9AyfiMkbSGWUqHgsqBVG0lY0dytSZ1pzmM6Um5bBe8v7fQLTZNw2CK4CtkJFYhr',
+                 'wS8cSZKUof6JXHo2eN9U5diMXb2ggC0aYx7bOem7lauImvQDdyzVyxpVRPqT3nBw']
+
+
 
 API_KEY = 's6l0K1wSbI2rSY0ntFlPEsRqbXdB7TXYvyCLxZi4jhMEkgrV6zNHezm9ULGJcn3O'
 
@@ -22,6 +31,7 @@ class Options:
 
     def translate2rus(self, item):
         return self.eng2rus.get(item, "Другое")
+
 
 haircut_list = [
     "BuzzCut",
@@ -114,38 +124,53 @@ async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
     ]
 
     headers = {
-        'ailabapi-api-key': API_KEY
+        'ailabapi-api-key': APIKeyManager.get_current_key()
     }
 
     # Отправка POST-запроса для начала обработки
     response = requests.request("POST", url, headers=headers, data=payload, files=files)
-    if response.status_code == 200:
-        task_id = response.json().get("task_id")
+    while response.status_code != 200:
+        print(response.text)
+        try:
+            APIKeyManager.switch_to_next_key()
+            headers = {
+                'ailabapi-api-key': APIKeyManager.get_current_key()
+            }
+            image.seek(0)
+            files = [
+                ('image', ('file', image, 'application/octet-stream'))
+            ]
+            print("Переключаем ключ на ", headers, files, payload)
+            time.sleep(5)
+            response = requests.request("POST", url, headers=headers, data=payload, files=files)
+        except Exception as E:
+            print(f"Ошибка {response.status_code}: {response.text}")
+            return "https://avatars.mds.yandex.net/i?id=2ced998169ff1da0d4087152330c122d_l-5666582-images-thumbs&n=13"
 
-        if task_id:
-            # URL для проверки статуса задачи
-            status_url = f"https://www.ailabapi.com/api/common/query-async-task-result?task_id={task_id}"
+    task_id = response.json().get("task_id")
+    print("Получен task_id")
+    if task_id:
+        # URL для проверки статуса задачи
+        status_url = f"https://www.ailabapi.com/api/common/query-async-task-result?task_id={task_id}"
 
-            # Проверка статуса задачи каждые 5 секунд
-            is_complete = False
-            while not is_complete:
-                status_response = requests.get(status_url, headers=headers)
-                if status_response.status_code == 200:
-                    status_data = status_response.json()
-                    if status_data.get("error_code") == 0 and status_data.get("data"):
-                        # Ссылка на изображение с измененной прической
-                        image_url = status_data["data"]["images"][0].replace('\\/', '/')
-                        return image_url
-                    else:
-                        time.sleep(5)
+        # Проверка статуса задачи каждые 5 секунд
+        is_complete = False
+        while not is_complete:
+            status_response = requests.get(status_url, headers=headers)
+            if status_response.status_code == 200:
+                status_data = status_response.json()
+                if status_data.get("error_code") == 0 and status_data.get("data"):
+                    # Ссылка на изображение с измененной прической
+                    image_url = status_data["data"]["images"][0].replace('\\/', '/')
+                    return image_url
                 else:
-                    print(f"Ошибка при проверке статуса: {status_response.status_code}")
-                    break
-        else:
-            print("Не удалось получить task_id")
+                    time.sleep(5)
+            else:
+                print(f"Ошибка при проверке статуса: {status_response.status_code}")
+                break
     else:
-        print(f"Ошибка {response.status_code}: {response.text}")
-        return "https://avatars.mds.yandex.net/i?id=2ced998169ff1da0d4087152330c122d_l-5666582-images-thumbs&n=13"
+        print("Не удалось получить task_id")
+
 
 
 
@@ -242,10 +267,7 @@ async def generate_photo(message, state):
         else:
             await sent_message.delete()
             await message.answer_photo(photo=response)
-        print(await state.get_data())
-        print(await state.get_state())
-        print(user_dict)
-        print("BEFORE CHANGING state")
+            await send_purchase_offer(message, state)
         await state.set_state(CurrentFunction.wait_photo)
         print("AFTER CHANGING state")
         print(await state.get_data())
@@ -255,6 +277,12 @@ async def generate_photo(message, state):
         user_dict["gen_cnt"][datetime.now().date()] = 1
         await state.update_data(gen_cnt=user_dict["gen_cnt"])
 
+async def send_purchase_offer(message, state):
+    user_data = await state.get_data()
+    await message.reply("Ваш баланс генераций на сегодня: " + user_data["balance"],
+                        reply_markup=create_inline_keyboard(
+                            ["💳Купить 10 генераций за 200 рублей"], "buy"
+                        ))
 
 @dp.message()
 async def default_reply(message: types.Message, state) -> None:

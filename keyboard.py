@@ -68,3 +68,4 @@ def create_inline_keyboard(options, callback_prefix, current_page=0, items_per_p
     # Create and return the InlineKeyboardMarkup
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
+
