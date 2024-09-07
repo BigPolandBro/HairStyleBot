@@ -1,70 +1,71 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from options import callback_options
 
-# def create_inline_keyboard(options, callback_prefix):
-#     # Create a list to hold all rows
-#     inline_keyboard = []
-#
-#     # Assuming you want four buttons per row
-#     row_width = 4
-#     # print(options.eng_list)
-#     # print(options.eng2rus)
-#     for i in range(0, len(options.eng_list), row_width):
-#         # Create each row
-#         row = [
-#             InlineKeyboardButton(text=options.translate2rus(item), callback_data=f"{callback_prefix}_{item}")
-#             for item in options.eng_list[i:i + row_width]
-#         ]
-#         # Add the row to the inline keyboard
-#         inline_keyboard.append(row)
-#     #     print(row)
-#     # print(inline_keyboard)
-#
-#     # Create and return the InlineKeyboardMarkup
-#     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
-def create_inline_keyboard(options, callback_prefix, current_page=0, items_per_page=6):
-    # Calculate total pages
-    total_items = len(options.eng_list)
-    total_pages = (total_items + items_per_page - 1) // items_per_page  # round up the total pages
+class KeyboardFactory:
+    def __init__(self, callback_prefix, current_page=0, items_per_page=6):
+        self.callback_prefix = callback_prefix
+        self.options = callback_options[callback_prefix]
+        self.current_page = current_page
+        self.items_per_page = items_per_page
+        print(self.callback_prefix, self.options)
 
-    # Determine the start and end index of the items for the current page
-    start_index = current_page * items_per_page
-    end_index = min(start_index + items_per_page, total_items)
+    def create_keyboard(self):
+        if self.callback_prefix in ["haircut", "color"]:
+            return self.create_paged_keyboard()
+        elif "show" in self.callback_prefix:  # для отображения фотографий с выбором
+            return self.create_selection_keyboard()
+        else:
+            return InlineKeyboardMarkup()  # Пустая клавиатура по умолчанию
 
-    # Slice the list of items
-    items_to_display = options.eng_list[start_index:end_index]
+    def create_paged_keyboard(self):
+        total_items = len(self.options.options_list)
+        total_pages = (total_items + self.items_per_page - 1) // self.items_per_page
 
-    # Create a list to hold all rows
-    inline_keyboard = []
+        start_index = self.current_page * self.items_per_page
+        end_index = min(start_index + self.items_per_page, total_items)
 
-    row_width = 3
-    for i in range(0, len(items_to_display), row_width):
-        row = [
-            InlineKeyboardButton(text=options.translate2rus(item), callback_data=f"{callback_prefix}_{item}")
-            for item in items_to_display[i:i + row_width]
+        items_to_display = self.options.options_list[start_index:end_index]
+
+        inline_keyboard = []
+
+        row_width = 3  # Number of buttons per row
+        for i in range(0, len(items_to_display), row_width):
+            row = [
+                InlineKeyboardButton(
+                    text=self.options.option_to_name(item),
+                    callback_data=f"{self.callback_prefix}_{item}"
+                )
+                for item in items_to_display[i:i + row_width]
+            ]
+            inline_keyboard.append(row)
+
+        if total_pages > 1:
+            navigation_row = []
+            if self.current_page > 0:
+                navigation_row.append(
+                    InlineKeyboardButton(
+                        text="⬅️ Назад",
+                        callback_data=f"{self.callback_prefix}_page_{self.current_page - 1}"
+                    )
+                )
+            if self.current_page < total_pages - 1:
+                navigation_row.append(
+                    InlineKeyboardButton(
+                        text="Вперед ➡️",
+                        callback_data=f"{self.callback_prefix}_page_{self.current_page + 1}"
+                    )
+                )
+            inline_keyboard.append(navigation_row)
+
+        return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
+    def create_selection_keyboard(self):
+        inline_keyboard = [
+            [
+                InlineKeyboardButton(text="Назад", callback_data=f"{self.callback_prefix}_back"),
+                InlineKeyboardButton(text="Выбрать", callback_data=f"{self.callback_prefix}_select")
+            ]
         ]
-        # Add the row to the inline keyboard
-        inline_keyboard.append(row)
-
-    # Navigation buttons
-    if total_pages > 1:
-        navigation_row = []
-        if current_page > 0:
-            navigation_row.append(
-                InlineKeyboardButton(
-                    text="⬅️ Назад",
-                    callback_data=f"{callback_prefix}_page_{current_page - 1}"
-                )
-            )
-        if current_page < total_pages - 1:
-            navigation_row.append(
-                InlineKeyboardButton(
-                    text="Вперед ➡️",
-                    callback_data=f"{callback_prefix}_page_{current_page + 1}"
-                )
-            )
-        inline_keyboard.append(navigation_row)
-
-    # Create and return the InlineKeyboardMarkup
-    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+        return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 

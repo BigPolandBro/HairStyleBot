@@ -3,7 +3,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import ContentType
 from aiogram.fsm.state import StatesGroup, State
-from keyboard import create_inline_keyboard
+from keyboard import KeyboardFactory
 import os
 import requests
 import time
@@ -11,75 +11,6 @@ from io import BytesIO
 from datetime import datetime
 
 API_KEY = 's6l0K1wSbI2rSY0ntFlPEsRqbXdB7TXYvyCLxZi4jhMEkgrV6zNHezm9ULGJcn3O'
-
-class Options:
-    eng_list = []
-    eng2rus = {}
-
-    def __init__(self, eng_list_, eng2rus_):
-        self.eng_list = eng_list_
-        self.eng2rus = eng2rus_
-
-    def translate2rus(self, item):
-        return self.eng2rus.get(item, "Другое")
-
-haircut_list = [
-    "BuzzCut",
-    "UnderCut",
-    "Pompadour",
-    "SlickBack",
-    "CurlyShag",
-    "WavyShag",
-    "FauxHawk",
-    "Spiky",
-    "CombOver",
-    "HighTightFade",
-    "ManBun",
-    "Afro"
-]
-color_list = [
-    "blonde",
-    "platinumBlonde",
-    "brown",
-    "lightBrown",
-    "blue",
-    "lightBlue",
-    "purple",
-    "lightPurple",
-    "pink",
-    "black",
-]
-
-haircut_translation = {
-    "BuzzCut": "Ноль",
-    "UnderCut": "Андеркат",
-    "Pompadour": "Помпадур",
-    "SlickBack": "Зачес назад",
-    "CurlyShag": "Кудри",
-    "WavyShag": "Волны",
-    "FauxHawk": "Ирокез",
-    "Spiky": "Шипы",
-    "CombOver": "Зачес",
-    "HighTightFade": "Фейд",
-    "ManBun": "Пучок",
-    "Afro": "Афро"
-}
-
-color_translation = {
-    "blonde": "Блонд",
-    "platinumBlonde": "Платиновый блонд",
-    "brown": "Коричневый",
-    "lightBrown": "Светло-коричневый",
-    "blue": "Синий",
-    "lightBlue": "Светло-синий",
-    "purple": "Фиолетовый",
-    "lightPurple": "Светло-фиолетовый",
-    "pink": "Розовый",
-    "black": "Черный"
-}
-
-haircut_options = Options(haircut_list, haircut_translation)
-color_options = Options(color_list, color_translation)
 
 class CurrentFunction(StatesGroup):
     wait_photo = State()
@@ -177,7 +108,7 @@ async def handle_message(message: types.Message, state) -> None:
         await message.reply('Присылай фото')
 
 async def choosing_haircut(message, state):
-    await message.reply("Выбери прическу", reply_markup=create_inline_keyboard(haircut_options, "haircut"))
+    await message.reply("Выбери прическу", reply_markup=KeyboardFactory(callback_prefix="haircut").create_keyboard())
     await state.set_state(CurrentFunction.choose_color)
 
 # @dp.callback_query()
@@ -187,10 +118,11 @@ async def choosing_haircut(message, state):
 @dp.callback_query(F.data.startswith("haircut"))
 async def set_haircut(callback, state):
     data = callback.data
+    print("ok")
     if "_page_" in data:
         current_page = int(data.split('_page_')[-1])
         await callback.message.edit_reply_markup(
-            reply_markup=create_inline_keyboard(haircut_options, "haircut", current_page=current_page, items_per_page=6)
+            reply_markup=KeyboardFactory(callback_prefix="haircut", current_page=current_page).create_keyboard()
         )
     else:
         await state.update_data(haircut=data.split('_')[1])
@@ -201,10 +133,11 @@ async def set_haircut(callback, state):
 @dp.callback_query(F.data.startswith("color"))
 async def set_color(callback, state):
     data = callback.data
+    print("GOOD")
     if "_page_" in data:
         current_page = int(data.split('_page_')[-1])
         await callback.message.edit_reply_markup(
-            reply_markup=create_inline_keyboard(color_options, "color", current_page=current_page, items_per_page=6)
+            reply_markup=KeyboardFactory(callback_prefix="color", current_page=current_page).create_keyboard()
         )
     else:
         await state.update_data(color=data.split('_')[1])
@@ -213,7 +146,7 @@ async def set_color(callback, state):
 
 
 async def choosing_color(message, state):
-    await message.edit_text("Выбери цвет", reply_markup=create_inline_keyboard(color_options, "color"))
+    await message.edit_text("Выбери цвет", reply_markup=KeyboardFactory(callback_prefix="color").create_keyboard())
 
 
 async def generate_photo(message, state):
