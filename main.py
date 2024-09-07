@@ -10,7 +10,19 @@ import time
 from io import BytesIO
 from datetime import datetime
 
-API_KEY = 'XXjL90yUJYO2RsocHN0pFeS2ZGhNKLKGhq3OeEirWQ146Id5mxMlAnPVCwbEl4Jo'
+API_KEY = 's6l0K1wSbI2rSY0ntFlPEsRqbXdB7TXYvyCLxZi4jhMEkgrV6zNHezm9ULGJcn3O'
+
+class Options:
+    eng_list = []
+    eng2rus = {}
+
+    def __init__(self, eng_list_, eng2rus_):
+        self.eng_list = eng_list_
+        self.eng2rus = eng2rus_
+
+    def translate2rus(self, item):
+        return self.eng2rus.get(item, "Другое")
+
 haircut_list = [
     "BuzzCut",
     "UnderCut",
@@ -37,6 +49,37 @@ color_list = [
     "pink",
     "black",
 ]
+
+haircut_translation = {
+    "BuzzCut": "Ноль",
+    "UnderCut": "Андеркат",
+    "Pompadour": "Помпадур",
+    "SlickBack": "Зачес назад",
+    "CurlyShag": "Кудри",
+    "WavyShag": "Волны",
+    "FauxHawk": "Ирокез",
+    "Spiky": "Шипы",
+    "CombOver": "Зачес",
+    "HighTightFade": "Фейд",
+    "ManBun": "Пучок",
+    "Afro": "Афро"
+}
+
+color_translation = {
+    "blonde": "Блонд",
+    "platinumBlonde": "Платиновый блонд",
+    "brown": "Коричневый",
+    "lightBrown": "Светло-коричневый",
+    "blue": "Синий",
+    "lightBlue": "Светло-синий",
+    "purple": "Фиолетовый",
+    "lightPurple": "Светло-фиолетовый",
+    "pink": "Розовый",
+    "black": "Черный"
+}
+
+haircut_options = Options(haircut_list, haircut_translation)
+color_options = Options(color_list, color_translation)
 
 class CurrentFunction(StatesGroup):
     wait_photo = State()
@@ -134,7 +177,7 @@ async def handle_message(message: types.Message, state) -> None:
         await message.reply('Присылай фото')
 
 async def choosing_haircut(message, state):
-    await message.reply("Выбери прическу", reply_markup=create_inline_keyboard(haircut_list, "haircut"))
+    await message.reply("Выбери прическу", reply_markup=create_inline_keyboard(haircut_options, "haircut"))
     await state.set_state(CurrentFunction.choose_color)
 
 # @dp.callback_query()
@@ -143,19 +186,34 @@ async def choosing_haircut(message, state):
 
 @dp.callback_query(F.data.startswith("haircut"))
 async def set_haircut(callback, state):
-    await state.update_data(haircut=callback.data.split('_')[1])
-    print(callback.message.text)
-    await choosing_color(callback.message, state)
+    data = callback.data
+    if "_page_" in data:
+        current_page = int(data.split('_page_')[-1])
+        await callback.message.edit_reply_markup(
+            reply_markup=create_inline_keyboard(haircut_options, "haircut", current_page=current_page, items_per_page=6)
+        )
+    else:
+        await state.update_data(haircut=data.split('_')[1])
+        print(callback.message.text)
+        await choosing_color(callback.message, state)
+
 
 @dp.callback_query(F.data.startswith("color"))
 async def set_color(callback, state):
-    await state.update_data(color=callback.data.split('_')[1])
-    await state.set_state(CurrentFunction.generating_photo)
-    await generate_photo(callback.message, state)
+    data = callback.data
+    if "_page_" in data:
+        current_page = int(data.split('_page_')[-1])
+        await callback.message.edit_reply_markup(
+            reply_markup=create_inline_keyboard(color_options, "color", current_page=current_page, items_per_page=6)
+        )
+    else:
+        await state.update_data(color=data.split('_')[1])
+        await state.set_state(CurrentFunction.generating_photo)
+        await generate_photo(callback.message, state)
 
 
 async def choosing_color(message, state):
-    await message.edit_text("Выбери цвет", reply_markup=create_inline_keyboard(color_list, "color"))
+    await message.edit_text("Выбери цвет", reply_markup=create_inline_keyboard(color_options, "color"))
 
 
 async def generate_photo(message, state):
@@ -184,7 +242,15 @@ async def generate_photo(message, state):
         else:
             await sent_message.delete()
             await message.answer_photo(photo=response)
+        print(await state.get_data())
+        print(await state.get_state())
+        print(user_dict)
+        print("BEFORE CHANGING state")
         await state.set_state(CurrentFunction.wait_photo)
+        print("AFTER CHANGING state")
+        print(await state.get_data())
+        print(await state.get_state())
+        print(user_dict)
         user_dict["gen_cnt"] = dict()
         user_dict["gen_cnt"][datetime.now().date()] = 1
         await state.update_data(gen_cnt=user_dict["gen_cnt"])
