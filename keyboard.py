@@ -13,7 +13,7 @@ class KeyboardFactory:
     def create_keyboard(self):
         if self.callback_prefix in ["haircut", "color"]:
             return self.create_paged_keyboard()
-        elif "show" in self.callback_prefix:  # для отображения фотографий с выбором
+        elif self.callback_prefix in ["purchase"]:  # для отображения фотографий с выбором
             return self.create_selection_keyboard()
         else:
             return InlineKeyboardMarkup()  # Пустая клавиатура по умолчанию
