@@ -10,7 +10,7 @@ import time
 from io import BytesIO
 from datetime import datetime
 from APIKeyManager import APIKeyManager
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFiltergit
 
 
 api_keys_list = ['XXjL90yUJYO2RsocHN0pFeS2ZGhNKLKGhq3OeEirWQ146Id5mxMlAnPVCwbEl4Jo',
