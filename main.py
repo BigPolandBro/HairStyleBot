@@ -12,86 +12,7 @@ from datetime import datetime
 from APIKeyManager import APIKeyManager
 from PIL import Image, ImageFilter
 
-
-api_keys_list = ['XXjL90yUJYO2RsocHN0pFeS2ZGhNKLKGhq3OeEirWQ146Id5mxMlAnPVCwbEl4Jo',
-                 'vjSdUng03HfgqVuMrlmJibDFA7KhVRUoeYFPP3qiBzT2wHwzWLZLGackExsYJRlf',
-                 '0coH412v8qKpVoYJBAi59wesW9MdgGYO36Vrx5qRZ2SckUXIaEAsQrChZtxjOEQF',
-                 'j9AyfiMkbSGWUqHgsqBVG0lY0dytSZ1pzmM6Um5bBe8v7fQLTZNw2CK4CtkJFYhr',
-                 'wS8cSZKUof6JXHo2eN9U5diMXb2ggC0aYx7bOem7lauImvQDdyzVyxpVRPqT3nBw']
-
-
-
 API_KEY = 's6l0K1wSbI2rSY0ntFlPEsRqbXdB7TXYvyCLxZi4jhMEkgrV6zNHezm9ULGJcn3O'
-
-class Options:
-    eng_list = []
-    eng2rus = {}
-
-    def __init__(self, eng_list_, eng2rus_):
-        self.eng_list = eng_list_
-        self.eng2rus = eng2rus_
-
-    def translate2rus(self, item):
-        return self.eng2rus.get(item, "Другое")
-
-
-haircut_list = [
-    "BuzzCut",
-    "UnderCut",
-    "Pompadour",
-    "SlickBack",
-    "CurlyShag",
-    "WavyShag",
-    "FauxHawk",
-    "Spiky",
-    "CombOver",
-    "HighTightFade",
-    "ManBun",
-    "Afro"
-]
-color_list = [
-    "blonde",
-    "platinumBlonde",
-    "brown",
-    "lightBrown",
-    "blue",
-    "lightBlue",
-    "purple",
-    "lightPurple",
-    "pink",
-    "black",
-]
-
-haircut_translation = {
-    "BuzzCut": "Ноль",
-    "UnderCut": "Андеркат",
-    "Pompadour": "Помпадур",
-    "SlickBack": "Зачес назад",
-    "CurlyShag": "Кудри",
-    "WavyShag": "Волны",
-    "FauxHawk": "Ирокез",
-    "Spiky": "Шипы",
-    "CombOver": "Зачес",
-    "HighTightFade": "Фейд",
-    "ManBun": "Пучок",
-    "Afro": "Афро"
-}
-
-color_translation = {
-    "blonde": "Блонд",
-    "platinumBlonde": "Платиновый блонд",
-    "brown": "Коричневый",
-    "lightBrown": "Светло-коричневый",
-    "blue": "Синий",
-    "lightBlue": "Светло-синий",
-    "purple": "Фиолетовый",
-    "lightPurple": "Светло-фиолетовый",
-    "pink": "Розовый",
-    "black": "Черный"
-}
-
-haircut_options = Options(haircut_list, haircut_translation)
-color_options = Options(color_list, color_translation)
 
 class CurrentFunction(StatesGroup):
     wait_photo = State()
@@ -242,6 +163,14 @@ async def set_haircut(callback, state):
         await state.update_data(haircut=data.split('_')[1])
         print(callback.message.text)
         await choosing_color(callback.message, state)
+    #TO DO bigpolandbro -
+    # elif "back" -> show menu
+    # elif "view" -> add await callback.message.edit_reply_markup( PHOTO
+    #         #     reply_markup=KeyboardFactory(callback_prefix="haircut_show").create_keyboard()
+    #         # )
+    # + add _view_ to buttons in paged_keyboard
+    # elif "choose" -> same as current else
+    # think how to organize options[callback_prefix] ? currently options["haircut"] but I need options["haircut_view"]
 
 
 @dp.callback_query(F.data.startswith("color"))
@@ -320,8 +249,7 @@ async def send_purchase_offer(message, state):
     credits = user_data.get("credits", 0)
     free_credits = user_data["free_credits"].get(datetime.now().date(), 1)
     print("Ваш баланс генераций на сегодня: " + str(free_credits))
-    await message.answer("Ваш баланс генераций на сегодня: " + str(free_credits))
-                        # reply_markup=CustomKeyboard("purchase"))
+    #await message.answer("Ваш баланс генераций на сегодня: " + str(free_credits)), reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
 
 @dp.message()
 async def default_reply(message: types.Message, state) -> None:

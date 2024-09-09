@@ -18,18 +18,8 @@ class KeyboardFactory:
         else:
             return InlineKeyboardMarkup()  # Пустая клавиатура по умолчанию
 
-    def create_paged_keyboard(self):
-        total_items = len(self.options.options_list)
-        total_pages = (total_items + self.items_per_page - 1) // self.items_per_page
-
-        start_index = self.current_page * self.items_per_page
-        end_index = min(start_index + self.items_per_page, total_items)
-
-        items_to_display = self.options.options_list[start_index:end_index]
-
+    def place_buttons(self, items_to_display, row_width = 3):
         inline_keyboard = []
-
-        row_width = 3  # Number of buttons per row
         for i in range(0, len(items_to_display), row_width):
             row = [
                 InlineKeyboardButton(
@@ -39,6 +29,18 @@ class KeyboardFactory:
                 for item in items_to_display[i:i + row_width]
             ]
             inline_keyboard.append(row)
+        return inline_keyboard
+
+    def create_paged_keyboard(self):
+        total_items = len(self.options.options_list)
+        total_pages = (total_items + self.items_per_page - 1) // self.items_per_page
+
+        start_index = self.current_page * self.items_per_page
+        end_index = min(start_index + self.items_per_page, total_items)
+
+        items_to_display = self.options.options_list[start_index:end_index]
+
+        inline_keyboard = self.place_buttons(items_to_display, row_width=3)
 
         if total_pages > 1:
             navigation_row = []
@@ -61,12 +63,7 @@ class KeyboardFactory:
         return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
     def create_selection_keyboard(self):
-        inline_keyboard = [
-            [
-                InlineKeyboardButton(text="Назад", callback_data=f"{self.callback_prefix}_back"),
-                InlineKeyboardButton(text="Выбрать", callback_data=f"{self.callback_prefix}_select")
-            ]
-        ]
+        inline_keyboard = self.place_buttons(self.options.options_list, row_width = 2)
         return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
