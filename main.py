@@ -3,7 +3,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import ContentType, FSInputFile
 from aiogram.fsm.state import StatesGroup, State
-from keyboard import create_inline_keyboard
+from keyboard import KeyboardFactory
 import os
 import requests
 import time
@@ -222,7 +222,7 @@ async def handle_message(message: types.Message, state) -> None:
         await message.reply('Присылай фото')
 
 async def choosing_haircut(message, state):
-    await message.reply("Выбери прическу", reply_markup=create_inline_keyboard(haircut_options, "haircut"))
+    await message.reply("Выбери прическу", reply_markup=KeyboardFactory(callback_prefix="haircut").create_keyboard())
     await state.set_state(CurrentFunction.choose_color)
 
 # @dp.callback_query()
@@ -232,10 +232,11 @@ async def choosing_haircut(message, state):
 @dp.callback_query(F.data.startswith("haircut"))
 async def set_haircut(callback, state):
     data = callback.data
+    print("ok")
     if "_page_" in data:
         current_page = int(data.split('_page_')[-1])
         await callback.message.edit_reply_markup(
-            reply_markup=create_inline_keyboard(haircut_options, "haircut", current_page=current_page, items_per_page=6)
+            reply_markup=KeyboardFactory(callback_prefix="haircut", current_page=current_page).create_keyboard()
         )
     else:
         await state.update_data(haircut=data.split('_')[1])
@@ -246,10 +247,11 @@ async def set_haircut(callback, state):
 @dp.callback_query(F.data.startswith("color"))
 async def set_color(callback, state):
     data = callback.data
+    print("GOOD")
     if "_page_" in data:
         current_page = int(data.split('_page_')[-1])
         await callback.message.edit_reply_markup(
-            reply_markup=create_inline_keyboard(color_options, "color", current_page=current_page, items_per_page=6)
+            reply_markup=KeyboardFactory(callback_prefix="color", current_page=current_page).create_keyboard()
         )
     else:
         await state.update_data(color=data.split('_')[1])
@@ -258,7 +260,7 @@ async def set_color(callback, state):
 
 
 async def choosing_color(message, state):
-    await message.edit_text("Выбери цвет", reply_markup=create_inline_keyboard(color_options, "color"))
+    await message.edit_text("Выбери цвет", reply_markup=KeyboardFactory(callback_prefix="color").create_keyboard())
 
 
 async def generate_photo(message, state):
