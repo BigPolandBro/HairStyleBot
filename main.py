@@ -1,7 +1,7 @@
 import asyncio
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import ContentType
+from aiogram.types import ContentType, FSInputFile
 from aiogram.fsm.state import StatesGroup, State
 from keyboard import create_inline_keyboard
 import os
@@ -10,6 +10,8 @@ import time
 from io import BytesIO
 from datetime import datetime
 from APIKeyManager import APIKeyManager
+from PIL import Image, ImageFilter
+
 
 api_keys_list = ['XXjL90yUJYO2RsocHN0pFeS2ZGhNKLKGhq3OeEirWQ146Id5mxMlAnPVCwbEl4Jo',
                  'vjSdUng03HfgqVuMrlmJibDFA7KhVRUoeYFPP3qiBzT2wHwzWLZLGackExsYJRlf',
@@ -98,6 +100,22 @@ class CurrentFunction(StatesGroup):
     generating_photo = State()
 
 
+async def blur_image(image_url, user_id):
+    # Загружаем изображение по URL
+    response = requests.get(image_url)
+    if response.status_code != 200:
+        raise ValueError(f"Не удалось скачать изображение: {response.status_code}")
+
+    image = Image.open(BytesIO(response.content))
+
+    # Применяем размытость
+    blurred_image = image.filter(ImageFilter.GaussianBlur(20))  # Измените радиус размытия по необходимости
+
+    # Сохраняем результат в BytesIO
+    temp_filename = f'blurred_image_{user_id}.png'
+    blurred_image.save(temp_filename, format='PNG')
+    return temp_filename
+
 
 async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
     # Скачиваем изображение по URL
@@ -122,10 +140,13 @@ async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
     files = [
         ('image', ('file', image, 'application/octet-stream'))
     ]
-
-    headers = {
-        'ailabapi-api-key': APIKeyManager.get_current_key()
-    }
+    try:
+        headers = {
+            'ailabapi-api-key': APIKeyManager.get_current_key()
+        }
+    except Exception as E:
+            print(f"Ошибка {response.status_code}: {response.text}")
+            return "https://avatars.mds.yandex.net/i?id=2ced998169ff1da0d4087152330c122d_l-5666582-images-thumbs&n=13"
 
     # Отправка POST-запроса для начала обработки
     response = requests.request("POST", url, headers=headers, data=payload, files=files)
@@ -141,7 +162,6 @@ async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
                 ('image', ('file', image, 'application/octet-stream'))
             ]
             print("Переключаем ключ на ", headers, files, payload)
-            time.sleep(5)
             response = requests.request("POST", url, headers=headers, data=payload, files=files)
         except Exception as E:
             print(f"Ошибка {response.status_code}: {response.text}")
@@ -244,8 +264,8 @@ async def choosing_color(message, state):
 async def generate_photo(message, state):
     user_dict = await state.get_data()
     print(user_dict)
-    if user_dict.get("gen_cnt", None) and user_dict["gen_cnt"].get(datetime.now().date(), 0) >= 1:
-        await message.reply("На сегодня лимит генераций исчерпан")
+    if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", None) and user_dict["free_credits"].get(datetime.now().date(), 1) < 1:
+        await message.answer_photo(user_dict["blur_photo"], caption="На сегодня лимит генераций исчерпан")
     else:
         file_url = user_dict["file_url"]
         print("before query")
@@ -266,23 +286,40 @@ async def generate_photo(message, state):
             await message.reply(response)
         else:
             await sent_message.delete()
-            await message.answer_photo(photo=response)
-            await send_purchase_offer(message, state)
+            if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", None) and user_dict["free_credits"].get(datetime.now().date(), 1) == 1:
+                blur_photo = await blur_image(response, message.from_user.id)
+                await state.update_data(blur_image=blur_photo)
+                input_file = FSInputFile(blur_photo)
+                await message.answer_photo(photo=input_file)
+            else:
+                await message.answer_photo(photo=response)
         await state.set_state(CurrentFunction.wait_photo)
         print("AFTER CHANGING state")
         print(await state.get_data())
         print(await state.get_state())
         print(user_dict)
-        user_dict["gen_cnt"] = dict()
-        user_dict["gen_cnt"][datetime.now().date()] = 1
-        await state.update_data(gen_cnt=user_dict["gen_cnt"])
+        if user_dict.get("free_credits", None):
+            if user_dict["free_credits"][datetime.now().date()] > 0:
+                user_dict["free_credits"][datetime.now().date()] = user_dict["free_credits"].get(datetime.now().date(), 2) - 1
+            else:
+                user_dict["credits"] -= 1
+        else:
+            user_dict["free_credits"] = dict()
+            user_dict["free_credits"][datetime.now().date()] = 2 - 1
+
+        await state.update_data(free_credits=user_dict["free_credits"])
+        if user_dict.get("credits", None):
+            await state.update_data(credits=user_dict["credits"])
+        await send_purchase_offer(message.reply_to_message, state)
+
 
 async def send_purchase_offer(message, state):
     user_data = await state.get_data()
-    await message.reply("Ваш баланс генераций на сегодня: " + user_data["balance"],
-                        reply_markup=create_inline_keyboard(
-                            ["💳Купить 10 генераций за 200 рублей"], "buy"
-                        ))
+    credits = user_data.get("credits", 0)
+    free_credits = user_data["free_credits"].get(datetime.now().date(), 1)
+    print("Ваш баланс генераций на сегодня: " + str(free_credits))
+    await message.answer("Ваш баланс генераций на сегодня: " + str(free_credits))
+                        # reply_markup=CustomKeyboard("purchase"))
 
 @dp.message()
 async def default_reply(message: types.Message, state) -> None:

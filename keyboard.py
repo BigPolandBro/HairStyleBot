@@ -1,26 +1,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-# def create_inline_keyboard(options, callback_prefix):
-#     # Create a list to hold all rows
-#     inline_keyboard = []
-#
-#     # Assuming you want four buttons per row
-#     row_width = 4
-#     # print(options.eng_list)
-#     # print(options.eng2rus)
-#     for i in range(0, len(options.eng_list), row_width):
-#         # Create each row
-#         row = [
-#             InlineKeyboardButton(text=options.translate2rus(item), callback_data=f"{callback_prefix}_{item}")
-#             for item in options.eng_list[i:i + row_width]
-#         ]
-#         # Add the row to the inline keyboard
-#         inline_keyboard.append(row)
-#     #     print(row)
-#     # print(inline_keyboard)
-#
-#     # Create and return the InlineKeyboardMarkup
-#     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
 
 def create_inline_keyboard(options, callback_prefix, current_page=0, items_per_page=6):
     # Calculate total pages
