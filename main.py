@@ -139,15 +139,16 @@ async def choosing_haircut(message, state):
 async def set_haircut(callback, state):
     data = callback.data
     print("ok")
-    if "_page_" in data:
+    if "page" in data:
         current_page = int(data.split('_page_')[-1])
         await callback.message.edit_reply_markup(
             reply_markup=KeyboardFactory(callback_prefix="haircut", current_page=current_page).create_keyboard()
         )
-    else:
+    if "choose" in data:
         await state.update_data(haircut=data.split('_')[1])
         print(callback.message.text)
         await choosing_color(callback.message, state)
+
     #TO DO bigpolandbro -
     # elif "back" -> show menu
     # elif "view" -> add await callback.message.edit_reply_markup( PHOTO
