@@ -10,19 +10,20 @@ class Options:
         return self.option2name.get(option, "Другое")
 
 haircut_list = [
-    "BuzzCut",
-    "UnderCut",
-    "Pompadour",
-    "SlickBack",
-    "CurlyShag",
-    "WavyShag",
-    "FauxHawk",
-    "Spiky",
-    "CombOver",
-    "HighTightFade",
     "ManBun",
-    "Afro"
+    "Afro",
+    "UndercutLongHair",
+    "LongWavyCurtainBangs",
+    "MessyTousled",
+    "LongHairTiedUp",
+    "DoubleBun",
+    "LongCurly",
+    "LongStraight",
+    "FishtailBraid",
+    "TwinBraids",
+    "BoxBraids"
 ]
+
 color_list = [
     "blonde",
     "platinumBlonde",
@@ -37,19 +38,20 @@ color_list = [
 ]
 
 haircut_translation = {
-    "BuzzCut": "Ноль",
-    "UnderCut": "Андеркат",
-    "Pompadour": "Помпадур",
-    "SlickBack": "Зачес назад",
-    "CurlyShag": "Кудри",
-    "WavyShag": "Волны",
-    "FauxHawk": "Ирокез",
-    "Spiky": "Шипы",
-    "CombOver": "Зачес",
-    "HighTightFade": "Фейд",
-    "ManBun": "Пучок",
-    "Afro": "Афро"
+    "ManBun": "Мужской пучок",
+    "Afro": "Афро",
+    "UndercutLongHair": "Андеркат+длинные",
+    "LongWavyCurtainBangs": "Волнистые челки",
+    "MessyTousled": "Небрежные",
+    "LongHairTiedUp": "Собранные",
+    "DoubleBun": "Двойной пучок",
+    "LongCurly": "Длинные кудри",
+    "LongStraight": "Длинные прямые",
+    "FishtailBraid": "Рыбий хвост",
+    "TwinBraids": "Две косы",
+    "BoxBraids": "Боксы"
 }
+
 
 color_translation = {
     "blonde": "Блонд",

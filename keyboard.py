@@ -3,15 +3,20 @@ from options import callback_options
 
 
 class KeyboardFactory:
-    def __init__(self, callback_prefix, current_page=0, items_per_page=6):
+    def __init__(self, callback_prefix, current_page=0, items_per_page=6, row_width=3):
         self.callback_prefix = callback_prefix
         self.options = callback_options[callback_prefix]
         self.current_page = current_page
         self.items_per_page = items_per_page
+        self.row_width = row_width
         print(self.callback_prefix, self.options)
 
     def create_keyboard(self):
-        if self.callback_prefix in ["haircut", "color"]:
+        if self.callback_prefix == "color":
+            return self.create_paged_keyboard()
+        elif self.callback_prefix == "haircut":
+            self.row_width = 2
+            self.items_per_page = 4
             return self.create_paged_keyboard()
         elif self.callback_prefix in ["purchase"]:  # для отображения фотографий с выбором
             return self.create_selection_keyboard()
@@ -40,7 +45,7 @@ class KeyboardFactory:
 
         items_to_display = self.options.options_list[start_index:end_index]
 
-        inline_keyboard = self.place_buttons(items_to_display, row_width=3)
+        inline_keyboard = self.place_buttons(items_to_display, row_width=self.row_width)
 
         if total_pages > 1:
             navigation_row = []
