@@ -249,7 +249,7 @@ async def send_purchase_offer(message, state):
     credits = user_data.get("credits", 0)
     free_credits = user_data["free_credits"].get(datetime.now().date(), 1)
     print("Ваш баланс генераций на сегодня: " + str(free_credits))
-    #await message.answer("Ваш баланс генераций на сегодня: " + str(free_credits)), reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
+    await message.answer("Ваш баланс генераций на сегодня: " + str(free_credits), reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
 
 @dp.message()
 async def default_reply(message: types.Message, state) -> None:

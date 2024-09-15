@@ -67,5 +67,5 @@ color_translation = {
 callback_options = dict()
 callback_options["haircut"] = Options(haircut_list, haircut_translation)
 callback_options["color"] = Options(color_list, color_translation)
-callback_options["purchase"] = Options(["back", "buy"], ["Назад", "Купить"])
+callback_options["purchase"] = Options(["buy"], {"buy": "Купить 10 генераций за 200 рублей"})
 #pay_options
