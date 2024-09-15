@@ -139,13 +139,33 @@ async def choosing_haircut(message, state):
 async def set_haircut(callback, state):
     data = callback.data
     print("ok")
-    if "page" in data:
+    if "_page_" in data:
         current_page = int(data.split('_page_')[-1])
         await callback.message.edit_reply_markup(
             reply_markup=KeyboardFactory(callback_prefix="haircut", current_page=current_page).create_keyboard()
         )
-    if "choose" in data:
-        await state.update_data(haircut=data.split('_')[1])
+    elif "_back" in data:
+        current_page = 1  # TODO
+        await callback.message.reply(
+            "Выбери прическу",
+            reply_markup=KeyboardFactory(callback_prefix="haircut", current_page=current_page).create_keyboard()
+        )
+        await callback.message.delete()
+    elif "_view_" in data:
+        haircut_name = data.split('_view_')[-1]
+        photo_path = os.path.join("haircut_photos", f"{haircut_name}.jpg")
+        if os.path.exists(photo_path):
+            #with open(photo_path, 'rb') as photo:
+            await callback.message.delete()  # Удаляем предыдущие сообщения
+            await state.update_data(haircut=haircut_name)
+            await callback.message.answer_photo(
+                photo=FSInputFile(photo_path),
+                caption=f"Прическа: {haircut_name}",
+                reply_markup=KeyboardFactory(callback_prefix="haircut_view").create_keyboard()
+            )
+    elif "_choose" in data:
+        # haircut_name = await state.get_data("haircut")
+        # await state.update_data(haircut=haircut_name)
         print(callback.message.text)
         await choosing_color(callback.message, state)
 
@@ -175,7 +195,8 @@ async def set_color(callback, state):
 
 
 async def choosing_color(message, state):
-    await message.edit_text("Выбери цвет", reply_markup=KeyboardFactory(callback_prefix="color").create_keyboard())
+    await message.reply("Выбери цвет", reply_markup=KeyboardFactory(callback_prefix="color").create_keyboard())
+    await message.delete()
 
 
 async def generate_photo(message, state):

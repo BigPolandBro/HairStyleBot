@@ -20,16 +20,19 @@ class KeyboardFactory:
             return self.create_paged_keyboard()
         elif self.callback_prefix in ["purchase"]:  # для отображения фотографий с выбором
             return self.create_selection_keyboard()
+        elif self.callback_prefix in ["haircut_view"]:
+            self.callback_prefix = "haircut"
+            return self.create_selection_keyboard()
         else:
             return InlineKeyboardMarkup()  # Пустая клавиатура по умолчанию
 
-    def place_buttons(self, items_to_display, row_width = 3):
+    def place_buttons(self, items_to_display, row_width = 3, extra = ""):
         inline_keyboard = []
         for i in range(0, len(items_to_display), row_width):
             row = [
                 InlineKeyboardButton(
                     text=self.options.option_to_name(item),
-                    callback_data=f"{self.callback_prefix}_{item}"
+                    callback_data=f"{self.callback_prefix}_{extra}_{item}"
                 )
                 for item in items_to_display[i:i + row_width]
             ]
@@ -45,7 +48,7 @@ class KeyboardFactory:
 
         items_to_display = self.options.options_list[start_index:end_index]
 
-        inline_keyboard = self.place_buttons(items_to_display, row_width=self.row_width)
+        inline_keyboard = self.place_buttons(items_to_display, row_width=self.row_width, extra="view")
 
         if total_pages > 1:
             navigation_row = []
