@@ -30,7 +30,7 @@ async def blur_image(image_url, user_id):
     image = Image.open(BytesIO(response.content))
 
     # Применяем размытость
-    blurred_image = image.filter(ImageFilter.GaussianBlur(20))  # Измените радиус размытия по необходимости
+    blurred_image = image.filter(ImageFilter.GaussianBlur(40))  # Измените радиус размытия по необходимости
 
     # Сохраняем результат в BytesIO
     temp_filename = f'blurred_image_{user_id}.png'
@@ -122,25 +122,10 @@ model_version = "cjwbw/night-enhancement:4328e402cfedafa70ad7cec04412e86ab618322
 bot = Bot(bot_token)
 dp = Dispatcher()
 
-
 @dp.message(Command("start"))
 async def start(message: types.Message, state) -> None:
     await message.reply('Привет! Я могу изменить тебе прическу, присылай фото)')
-    await state.set_state(CurrentFunction.wait_photo)
 
-
-
-@dp.message(CurrentFunction.wait_photo)
-async def handle_message(message: types.Message, state) -> None:
-    if message.content_type == ContentType.PHOTO:
-        photo = message.photo[-1]
-        file_info = await bot.get_file(photo.file_id)
-        file_url = f"https://api.telegram.org/file/bot{bot_token}/{file_info.file_path}"
-        await state.update_data(file_url=file_url)
-        await state.set_state(CurrentFunction.choose_haircut)
-        await choosing_haircut(message, state)
-    else:
-        await message.reply('Присылай фото')
 
 async def choosing_haircut(message, state):
     await message.reply("Выбери прическу", reply_markup=KeyboardFactory(callback_prefix="haircut").create_keyboard())
@@ -251,11 +236,24 @@ async def send_purchase_offer(message, state):
     print("Ваш баланс генераций на сегодня: " + str(free_credits))
     await message.answer("Ваш баланс генераций на сегодня: " + str(free_credits), reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
 
-@dp.message()
-async def default_reply(message: types.Message, state) -> None:
-    await message.reply('Пришли мне фото')
-    await state.set_state(CurrentFunction.wait_photo)
+@dp.callback_query(F.data.startswith("purchase"))
+async def make_purchase(callback, state):
+    await callback.message.edit_text("Автоматическая оплата в разработке \n"
+                            "***Для того, чтобы купить 10 генераций, "
+                            "отправьте 200 рублей по номеру телефона +79174667475*** \n"
+                            "После этого пришлите скриншот/чек сюда: @andreevoleg22", parse_mode="markdown")
 
+@dp.message()
+async def handle_message(message: types.Message, state) -> None:
+    if message.content_type == ContentType.PHOTO:
+        photo = message.photo[-1]
+        file_info = await bot.get_file(photo.file_id)
+        file_url = f"https://api.telegram.org/file/bot{bot_token}/{file_info.file_path}"
+        await state.update_data(file_url=file_url)
+        await state.set_state(CurrentFunction.choose_haircut)
+        await choosing_haircut(message, state)
+    else:
+        await message.reply('Присылай фото')
 
 async def main():
     await dp.start_polling(bot)
