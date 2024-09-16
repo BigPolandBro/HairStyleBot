@@ -35,6 +35,17 @@ color_list = [
     "lightPurple",
     "pink",
     "black",
+    "white",
+    "grey",
+    "silver",
+    "red",
+    "orange",
+    "green",
+    "gradient",
+    "multicolored",
+    "darkBlue",
+    "burgundy",
+    "darkGreen"
 ]
 
 haircut_translation = {
@@ -49,7 +60,7 @@ haircut_translation = {
     "LongStraight": "Длинные прямые",
     "FishtailBraid": "Рыбий хвост",
     "TwinBraids": "Две косы",
-    "BoxBraids": "Боксы"
+    "BoxBraids": "Бокс-брейдс"
 }
 
 
@@ -59,11 +70,22 @@ color_translation = {
     "brown": "Коричневый",
     "lightBrown": "Светло-коричневый",
     "blue": "Синий",
-    "lightBlue": "Светло-синий",
+    "lightBlue": "Голубой",
     "purple": "Фиолетовый",
     "lightPurple": "Светло-фиолетовый",
     "pink": "Розовый",
-    "black": "Черный"
+    "black": "Черный",
+    "white": "Белый",
+    "grey": "Серый",
+    "silver": "Серебристый",
+    "red": "Красный",
+    "orange": "Оранжевый",
+    "green": "Зеленый",
+    "gradient": "Градиент",
+    "multicolored": "Многоцветный",
+    "darkBlue": "Темно-синий",
+    "burgundy": "Бордовый",
+    "darkGreen": "Темно-зеленый"
 }
 
 callback_options = dict()

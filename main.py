@@ -153,14 +153,14 @@ async def set_haircut(callback, state):
         await callback.message.delete()
     elif "_view_" in data:
         haircut_name = data.split('_view_')[-1]
-        photo_path = os.path.join("haircut_photos", f"{haircut_name}.jpg")
+        photo_path = os.path.join("haircut_photos", f"{haircut_name}.jpeg")
         if os.path.exists(photo_path):
             #with open(photo_path, 'rb') as photo:
             await callback.message.delete()  # Удаляем предыдущие сообщения
             await state.update_data(haircut=haircut_name)
             await callback.message.answer_photo(
                 photo=FSInputFile(photo_path),
-                caption=f"Прическа: {haircut_name}",
+                #caption=f"Прическа: {haircut_name}",
                 reply_markup=KeyboardFactory(callback_prefix="haircut_view").create_keyboard()
             )
     elif "_choose" in data:
@@ -248,7 +248,7 @@ async def generate_photo(message, state):
         await state.update_data(free_credits=user_dict["free_credits"])
         if user_dict.get("credits", None):
             await state.update_data(credits=user_dict["credits"])
-        await send_purchase_offer(message.reply_to_message, state)
+        await send_purchase_offer(message, state)
 
 
 async def send_purchase_offer(message, state):
