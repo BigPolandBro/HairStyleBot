@@ -203,7 +203,7 @@ async def generate_photo(message, state):
     user_dict = await state.get_data()
     print(user_dict)
     if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", None) and user_dict["free_credits"].get(datetime.now().date(), 1) < 1:
-        await message.answer_photo(user_dict["blur_photo"], caption="На сегодня лимит генераций исчерпан")
+        await message.answer_photo(user_dict["blur_image"], caption="На сегодня лимит генераций исчерпан")
     else:
         file_url = user_dict["file_url"]
         print("before query")
