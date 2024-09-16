@@ -44,7 +44,7 @@ async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
     if response.status_code != 200:
         raise ValueError(f"Не удалось скачать изображение: {response.status_code}")
 
-    print("before downloading pic in func")
+    print("before downloading pic in func ", hair_style, color)
 
     image = BytesIO(response.content)
     image.name = 'image.jpeg'  # задаем имя файла для файла в памяти
@@ -189,7 +189,7 @@ async def set_color(callback, state):
             reply_markup=KeyboardFactory(callback_prefix="color", current_page=current_page).create_keyboard()
         )
     else:
-        await state.update_data(color=data.split('_')[1])
+        await state.update_data(color=data.split('_')[-1])
         await state.set_state(CurrentFunction.generating_photo)
         await generate_photo(callback.message, state)
 
