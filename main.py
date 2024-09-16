@@ -138,7 +138,7 @@ async def choosing_haircut(message, state):
 @dp.callback_query(F.data.startswith("haircut"))
 async def set_haircut(callback, state):
     data = callback.data
-    print("ok")
+    print("ok", data)
     if "_page_" in data:
         current_page = int(data.split('_page_')[-1])
         await callback.message.edit_reply_markup(
