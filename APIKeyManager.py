@@ -3,7 +3,8 @@ class APIKeyManager:
     Класс для управления API-ключами.
     """
 
-    _api_keys = ['s6l0K1wSbI2rSY0ntFlPEsRqbXdB7TXYvyCLxZi4jhMEkgrV6zNHezm9ULGJcn3O',
+    _api_keys = [
+                'Zrn2eyBtf8tC4l2Vj5EdmbSTNYKs0kwDcog3xDyLdqSMMIZqW3EbAeAQFp7xQfsh',
                  'XXjL90yUJYO2RsocHN0pFeS2ZGhNKLKGhq3OeEirWQ146Id5mxMlAnPVCwbEl4Jo',
                  'vjSdUng03HfgqVuMrlmJibDFA7KhVRUoeYFPP3qiBzT2wHwzWLZLGackExsYJRlf',
                  '0coH412v8qKpVoYJBAi59wesW9MdgGYO36Vrx5qRZ2SckUXIaEAsQrChZtxjOEQF',
