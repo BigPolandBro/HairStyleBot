@@ -1,7 +1,9 @@
 import asyncio
+import uuid
+
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import ContentType, FSInputFile
+from aiogram.types import ContentType, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.state import StatesGroup, State
 from keyboard import KeyboardFactory
 import os
@@ -11,15 +13,50 @@ from io import BytesIO
 from datetime import datetime
 from APIKeyManager import APIKeyManager
 from PIL import Image, ImageFilter
+from yookassa import Configuration, Payment
+
 
 API_KEY = 's6l0K1wSbI2rSY0ntFlPEsRqbXdB7TXYvyCLxZi4jhMEkgrV6zNHezm9ULGJcn3O'
+YOOKASSA_SHOP_ID = 453462
+YOOKASSA_SECRET_KEY = 'live_4w5f_W3HYzeetUtAFwijENfBrEgrsIVEMY2Yk4LXjZ0'
 
+Configuration.account_id = YOOKASSA_SHOP_ID
+Configuration.secret_key = YOOKASSA_SECRET_KEY
 class CurrentFunction(StatesGroup):
     wait_photo = State()
     choose_color = State()
     choose_haircut = State()
     generating_photo = State()
 
+
+async def create_payment(amount, description):
+    payment = Payment.create({
+        "amount": {
+            "value": str(amount),
+            "currency": "RUB",
+            "receipt": {
+                "items": [
+                    {
+                        "description": "10 кредитов на генерацию прически",
+                        "amount": {
+                            "value": str(amount),
+                            "currency": "RUB"
+                        },
+                    }
+                ]
+            }
+        },
+        "confirmation": {
+            "type": "redirect",
+            "return_url": "https://t.me/barber_ai_bot"  # Укажите правильную ссылку для возврата
+        },
+        "capture": True,
+        "description": description,
+        "metadata": {
+            "order_id": str(uuid.uuid4())
+        }
+    })
+    return payment
 
 async def blur_image(image_url, user_id):
     # Загружаем изображение по URL
@@ -255,15 +292,44 @@ async def send_purchase_offer(message, state):
     user_data = await state.get_data()
     credits = user_data.get("credits", 0)
     free_credits = user_data["free_credits"].get(datetime.now().date(), 1)
-    print("Ваш баланс генераций на сегодня: " + str(free_credits))
-    await message.answer("Ваш баланс генераций на сегодня: " + str(free_credits), reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
+    print("Ваш баланс генераций на сегодня: " + str(free_credits + credits))
+    total_credits = free_credits + credits
+    await message.answer("Ваш баланс генераций на сегодня: " + str(total_credits), reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
 
 @dp.callback_query(F.data.startswith("purchase"))
-async def make_purchase(callback, state):
-    await callback.message.edit_text("Автоматическая оплата в разработке \n"
-                            "***Для того, чтобы купить 10 генераций, "
-                            "отправьте 200 рублей по номеру телефона +79174667475*** \n"
-                            "После этого пришлите скриншот/чек сюда: @andreevoleg22", parse_mode="markdown")
+async def make_purchase(callback_query: types.CallbackQuery):
+    amount = 200  # Сумма платежа в рублях
+    description = "Покупка 10 генераций"
+    payment = await create_payment(amount, description)
+    payment_url = payment.confirmation.confirmation_url
+    payment_id = payment.id
+
+    # Кнопки
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="Оплатить", url=payment_url),
+        InlineKeyboardButton(text="Подтвердить оплату", callback_data=f"confirm_payment:{payment_id}")
+        ]]
+    )
+
+    await callback_query.message.edit_text(
+        f"Для того, чтобы купить 10 генераций, оплатите 200 рублей, перейдя по ссылке ниже, а затем нажмите 'Подтвердить оплату'.",
+        reply_markup=keyboard, parse_mode="markdown"
+    )
+
+
+@dp.callback_query(F.data.startswith("confirm_payment"))
+async def confirm_payment(callback_query: types.CallbackQuery, state):
+    payment_id = callback_query.data.split(":")[1]
+    payment = Payment.find_one(payment_id)
+
+    if payment.status == 'succeeded':
+        user_dict = await state.get_data()
+        credits = user_dict.get("credits", 0) + 10
+        await state.update_data(credits=credits)
+        await callback_query.message.edit_text("Платеж подтвержден. Спасибо за покупку!")
+    else:
+        await callback_query.message.edit_text("Платеж не найден или не подтвержден. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.")
+
 
 @dp.message()
 async def handle_message(message: types.Message, state) -> None:
