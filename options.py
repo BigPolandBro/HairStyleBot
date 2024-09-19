@@ -92,5 +92,5 @@ callback_options = dict()
 callback_options["haircut"] = Options(haircut_list, haircut_translation)
 callback_options["color"] = Options(color_list, color_translation)
 callback_options["purchase"] = Options(["buy"], {"buy": "Купить 10 генераций за 200 рублей"})
-callback_options["haircut_view"] = Options(["back", "choose"], {"back": "Назад", "choose": "Выбрать"})
+callback_options["haircut_view"] = Options(["back", "choose"], {"back": "Назад к выбору", "choose": "Хочу такую"})
 #pay_options

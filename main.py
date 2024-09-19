@@ -161,11 +161,35 @@ dp = Dispatcher()
 
 @dp.message(Command("start"))
 async def start(message: types.Message, state) -> None:
-    await message.reply('Привет! Я могу изменить тебе прическу, присылай фото)')
+    greeting_text = (
+        "Привет! Я могу создать для тебя новую прическу без ножниц! \n\n"
+        "Смотри, как круто я умею! Вот пример:"
+    )
+
+    time.sleep(1)
+
+    await message.reply(greeting_text)
+
+    example_photo_before = os.path.join("haircut_photos", "DurovBefore.jpeg")
+    await message.answer_photo(photo=FSInputFile(example_photo_before), caption="Фото ДО")
+
+    time.sleep(1)
+
+    example_photo_after = os.path.join("haircut_photos", "DurovAfter.jpeg")
+    await message.answer_photo(photo=FSInputFile(example_photo_after), caption="Фото ПОСЛЕ")
+
+    time.sleep(1)
+
+    offer_to_action = (
+        "Просто пришли фото, где твоё лицо занимает не менее 10% кадра.\n\n"
+        "⚠️ Твои фото не сохраняются и никому не передаются.\n\n"
+    )
+
+    await message.reply(offer_to_action)
 
 
 async def choosing_haircut(message, state):
-    await message.reply("Выбери прическу", reply_markup=KeyboardFactory(callback_prefix="haircut").create_keyboard())
+    await message.reply("Выбирай прическу! Нажми, чтобы увидеть пример.", reply_markup=KeyboardFactory(callback_prefix="haircut").create_keyboard())
     await state.set_state(CurrentFunction.choose_color)
 
 # @dp.callback_query()
@@ -184,7 +208,7 @@ async def set_haircut(callback, state):
     elif "_back" in data:
         current_page = 1  # TODO
         await callback.message.reply(
-            "Выбери прическу",
+            "Выбирай прическу! Нажми, чтобы увидеть пример.",
             reply_markup=KeyboardFactory(callback_prefix="haircut", current_page=current_page).create_keyboard()
         )
         await callback.message.delete()
@@ -244,7 +268,7 @@ async def generate_photo(message, state):
     else:
         file_url = user_dict["file_url"]
         print("before query")
-        sent_message = await message.edit_text("Идет генерация")
+        sent_message = await message.edit_text("Я уже приступил к работе. Обычно она занимает не больше полминуты.")
         task = asyncio.create_task(change_hairstyle(file_url, user_dict["haircut"], user_dict["color"]))
         while not task.done():
             await sent_message.edit_text("Идет генерация.")
