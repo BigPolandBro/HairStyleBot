@@ -22,11 +22,24 @@ YOOKASSA_SECRET_KEY = 'live_4w5f_W3HYzeetUtAFwijENfBrEgrsIVEMY2Yk4LXjZ0'
 
 Configuration.account_id = YOOKASSA_SHOP_ID
 Configuration.secret_key = YOOKASSA_SECRET_KEY
+
+error_map = {422: "Формат изображения не подходит. Пришлите другое"}
+
+
 class CurrentFunction(StatesGroup):
     wait_photo = State()
     choose_color = State()
     choose_haircut = State()
     generating_photo = State()
+
+
+class AiLabValueError(ValueError):
+    def __init__(self, message, error_code):
+        super().__init__(message)
+        self.error_code = error_code
+
+    def __str__(self):
+        return f"{super().str()} (Error code: {self.error_code})"
 
 
 async def create_payment(amount, description):
@@ -79,7 +92,7 @@ async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
     # Скачиваем изображение по URL
     response = requests.get(image_url)
     if response.status_code != 200:
-        raise ValueError(f"Не удалось скачать изображение: {response.status_code}")
+        raise AiLabValueError(f"{response.status_code}", response.status_code)
 
     print("before downloading pic in func ", hair_style, color)
 
@@ -123,7 +136,7 @@ async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
             response = requests.request("POST", url, headers=headers, data=payload, files=files)
         except Exception as E:
             print(f"Ошибка {response.status_code}: {response.text}")
-            return "https://avatars.mds.yandex.net/i?id=2ced998169ff1da0d4087152330c122d_l-5666582-images-thumbs&n=13"
+            raise AiLabValueError(f"{response.status_code}", response.status_code)
 
     task_id = response.json().get("task_id")
     print("Получен task_id")
@@ -269,47 +282,50 @@ async def generate_photo(message, state):
         file_url = user_dict["file_url"]
         print("before query")
         sent_message = await message.edit_text("Я уже приступил к работе. Обычно она занимает не больше полминуты.")
-        task = asyncio.create_task(change_hairstyle(file_url, user_dict["haircut"], user_dict["color"]))
-        while not task.done():
-            await sent_message.edit_text("Идет генерация.")
-            time.sleep(1)
-            await sent_message.edit_text("Идет генерация..")
-            time.sleep(1)
-            await sent_message.edit_text("Идет генерация...")
-            time.sleep(1)
-        response = await task
-        print("after query")
-        print(file_url)
-        print(response)
-        if response.startswith("Error"):
-            await message.reply(response)
-        else:
-            await sent_message.delete()
-            if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", None) and user_dict["free_credits"].get(datetime.now().date(), 1) == 1:
-                blur_photo = await blur_image(response, message.from_user.id)
-                await state.update_data(blur_image=blur_photo)
-                input_file = FSInputFile(blur_photo)
-                await message.answer_photo(photo=input_file)
+        try:
+            task = asyncio.create_task(change_hairstyle(file_url, user_dict["haircut"], user_dict["color"]))
+            while not task.done():
+                await sent_message.edit_text("Идет генерация.")
+                time.sleep(1)
+                await sent_message.edit_text("Идет генерация..")
+                time.sleep(1)
+                await sent_message.edit_text("Идет генерация...")
+                time.sleep(1)
+            response = await task
+            print("after query")
+            print(file_url)
+            print(response)
+            if response.startswith("Error"):
+                await message.reply(response)
             else:
-                await message.answer_photo(photo=response)
-        await state.set_state(CurrentFunction.wait_photo)
-        print("AFTER CHANGING state")
-        print(await state.get_data())
-        print(await state.get_state())
-        print(user_dict)
-        if user_dict.get("free_credits", None):
-            if user_dict["free_credits"][datetime.now().date()] > 0:
-                user_dict["free_credits"][datetime.now().date()] = user_dict["free_credits"].get(datetime.now().date(), 2) - 1
+                await sent_message.delete()
+                if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", None) and user_dict["free_credits"].get(datetime.now().date(), 1) == 1:
+                    blur_photo = await blur_image(response, message.from_user.id)
+                    await state.update_data(blur_image=blur_photo)
+                    input_file = FSInputFile(blur_photo)
+                    await message.answer_photo(photo=input_file)
+                else:
+                    await message.answer_photo(photo=response)
+            await state.set_state(CurrentFunction.wait_photo)
+            print("AFTER CHANGING state")
+            print(await state.get_data())
+            print(await state.get_state())
+            print(user_dict)
+            if user_dict.get("free_credits", None):
+                if user_dict["free_credits"][datetime.now().date()] > 0:
+                    user_dict["free_credits"][datetime.now().date()] = user_dict["free_credits"].get(datetime.now().date(), 2) - 1
+                else:
+                    user_dict["credits"] -= 1
             else:
-                user_dict["credits"] -= 1
-        else:
-            user_dict["free_credits"] = dict()
-            user_dict["free_credits"][datetime.now().date()] = 2 - 1
+                user_dict["free_credits"] = dict()
+                user_dict["free_credits"][datetime.now().date()] = 2 - 1
 
-        await state.update_data(free_credits=user_dict["free_credits"])
-        if user_dict.get("credits", None):
-            await state.update_data(credits=user_dict["credits"])
-        await send_purchase_offer(message, state)
+            await state.update_data(free_credits=user_dict["free_credits"])
+            if user_dict.get("credits", None):
+                await state.update_data(credits=user_dict["credits"])
+            await send_purchase_offer(message, state)
+        except AiLabValueError as e:
+            await message.reply(error_map.get(e.error_code, "Возникла ошибка"))
 
 
 async def send_purchase_offer(message, state):
