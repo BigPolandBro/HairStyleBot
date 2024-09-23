@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 
 from aiogram import Bot, Dispatcher, types, F
@@ -11,20 +12,25 @@ import requests
 import time
 from io import BytesIO
 from datetime import datetime
-from APIKeyManager import APIKeyManager
 from PIL import Image, ImageFilter
 from yookassa import Configuration, Payment
+from logger import EventLogger
 
 
-API_KEY = 's6l0K1wSbI2rSY0ntFlPEsRqbXdB7TXYvyCLxZi4jhMEkgrV6zNHezm9ULGJcn3O'
+AILAB_API_KEY = 'Zrn2eyBtf8tC4l2Vj5EdmbSTNYKs0kwDcog3xDyLdqSMMIZqW3EbAeAQFp7xQfsh'
+# AILAB_API_KEY = '0coH412v8qKpVoYJBAi59wesW9MdgGYO36Vrx5qRZ2SckUXIaEAsQrChZtxjOEQF'
+
 YOOKASSA_SHOP_ID = 453462
 YOOKASSA_SECRET_KEY = 'live_4w5f_W3HYzeetUtAFwijENfBrEgrsIVEMY2Yk4LXjZ0'
 
 Configuration.account_id = YOOKASSA_SHOP_ID
 Configuration.secret_key = YOOKASSA_SECRET_KEY
 
-error_map = {422: "Формат изображения не подходит. Пришлите другое"}
+error_map = {422: "***Формат изображения не подходит.*** \n"
+                  "1. Лицо должно занимать не менее 10 процентов кадра \n"
+                  "2. Лицо должно быть направлено прямо,"}
 
+event_logger = EventLogger()
 
 class CurrentFunction(StatesGroup):
     wait_photo = State()
@@ -42,7 +48,7 @@ class AiLabValueError(ValueError):
         return f"{super().str()} (Error code: {self.error_code})"
 
 
-async def create_payment(amount, description):
+async def create_payment(amount, description, user_id):
     payment = Payment.create({
         "amount": {
             "value": str(amount),
@@ -69,11 +75,16 @@ async def create_payment(amount, description):
             "order_id": str(uuid.uuid4())
         }
     })
+    event_logger.handle_event(str(user_id),
+                              f'Created payment. Order id: {payment.id}. Confirm url: {payment.confirmation.confirmation_url}')
+
     return payment
+
 
 async def blur_image(image_url, user_id):
     # Загружаем изображение по URL
     response = requests.get(image_url)
+
     if response.status_code != 200:
         raise ValueError(f"Не удалось скачать изображение: {response.status_code}")
 
@@ -85,10 +96,11 @@ async def blur_image(image_url, user_id):
     # Сохраняем результат в BytesIO
     temp_filename = f'blurred_image_{user_id}.png'
     blurred_image.save(temp_filename, format='PNG')
+    event_logger.handle_event(str(user_id), 'Successfully blur image')
     return temp_filename
 
 
-async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
+async def change_hairstyle(image_url, user_id, hair_style='Pompadour', color='black', ):
     # Скачиваем изображение по URL
     response = requests.get(image_url)
     if response.status_code != 200:
@@ -111,33 +123,18 @@ async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
     files = [
         ('image', ('file', image, 'application/octet-stream'))
     ]
+
+    headers = {
+        'ailabapi-api-key': AILAB_API_KEY
+    }
     try:
-        headers = {
-            'ailabapi-api-key': APIKeyManager.get_current_key()
-        }
+        image.seek(0)
+        response = requests.request("POST", url, headers=headers, data=payload, files=files)
     except Exception as E:
-            print(f"Ошибка {response.status_code}: {response.text}")
-            return "https://avatars.mds.yandex.net/i?id=2ced998169ff1da0d4087152330c122d_l-5666582-images-thumbs&n=13"
-
-    # Отправка POST-запроса для начала обработки
-    response = requests.request("POST", url, headers=headers, data=payload, files=files)
-    while response.status_code != 200:
-        print(response.text)
-        try:
-            APIKeyManager.switch_to_next_key()
-            headers = {
-                'ailabapi-api-key': APIKeyManager.get_current_key()
-            }
-            image.seek(0)
-            files = [
-                ('image', ('file', image, 'application/octet-stream'))
-            ]
-            print("Переключаем ключ на ", headers, files, payload)
-            response = requests.request("POST", url, headers=headers, data=payload, files=files)
-        except Exception as E:
-            print(f"Ошибка {response.status_code}: {response.text}")
-            raise AiLabValueError(f"{response.status_code}", response.status_code)
-
+        print(f"Ошибка {response.status_code}: {response.text}")
+        event_logger.handle_event(str(user_id), f'Error with generation:{response.status_code}. Error text: {response.text}')
+        raise AiLabValueError(f"{response.status_code}", response.status_code)
+    print(response.json())
     task_id = response.json().get("task_id")
     print("Получен task_id")
     if task_id:
@@ -153,14 +150,21 @@ async def change_hairstyle(image_url, hair_style='Pompadour', color='black'):
                 if status_data.get("error_code") == 0 and status_data.get("data"):
                     # Ссылка на изображение с измененной прической
                     image_url = status_data["data"]["images"][0].replace('\\/', '/')
+                    event_logger.handle_event(str(user_id),
+                                              f'Get generated image url: {image_url}')
                     return image_url
                 else:
-                    time.sleep(5)
+                    await asyncio.sleep(5)
             else:
                 print(f"Ошибка при проверке статуса: {status_response.status_code}")
+                event_logger.handle_event(str(user_id),
+                                          f'Error with generation status checking:{status_response.status_code}')
+
                 break
     else:
-        print("Не удалось получить task_id")
+        event_logger.handle_event(str(user_id), f'AiLabValueError:{response.status_code}')
+        raise AiLabValueError(f"{response.status_code}", response.status_code)
+
 
 
 
@@ -174,13 +178,14 @@ dp = Dispatcher()
 
 @dp.message(Command("start"))
 async def start(message: types.Message, state) -> None:
+    # await state.update_data(user_id=message.from_user.id)
+    event_logger.handle_event(str(message.from_user.id), 'Started conversation')
     greeting_text = (
         "Привет! Я могу создать для тебя новую прическу без ножниц! \n\n"
         "Смотри, как круто я умею! Вот пример:"
     )
 
     time.sleep(1)
-
     await message.reply(greeting_text)
 
     example_photo_before = os.path.join("haircut_photos", "DurovBefore.jpeg")
@@ -203,6 +208,7 @@ async def start(message: types.Message, state) -> None:
 
 async def choosing_haircut(message, state):
     await message.reply("Выбирай прическу! Нажми, чтобы увидеть пример.", reply_markup=KeyboardFactory(callback_prefix="haircut").create_keyboard())
+    event_logger.handle_event(str(message.from_user.id), 'Сhoosing_haircut')
     await state.set_state(CurrentFunction.choose_color)
 
 # @dp.callback_query()
@@ -218,6 +224,7 @@ async def set_haircut(callback, state):
         await callback.message.edit_reply_markup(
             reply_markup=KeyboardFactory(callback_prefix="haircut", current_page=current_page).create_keyboard()
         )
+        event_logger.handle_event(str(callback.from_user.id), f'Go to page {current_page}')
     elif "_back" in data:
         current_page = 1  # TODO
         await callback.message.reply(
@@ -225,6 +232,8 @@ async def set_haircut(callback, state):
             reply_markup=KeyboardFactory(callback_prefix="haircut", current_page=current_page).create_keyboard()
         )
         await callback.message.delete()
+        event_logger.handle_event(str(callback.from_user.id), 'Go back to choosing from example')
+
     elif "_view_" in data:
         haircut_name = data.split('_view_')[-1]
         photo_path = os.path.join("haircut_photos", f"{haircut_name}.jpeg")
@@ -237,11 +246,15 @@ async def set_haircut(callback, state):
                 #caption=f"Прическа: {haircut_name}",
                 reply_markup=KeyboardFactory(callback_prefix="haircut_view").create_keyboard()
             )
+        event_logger.handle_event(str(callback.from_user.id), f'Watching {haircut_name}')
     elif "_choose" in data:
         # haircut_name = await state.get_data("haircut")
         # await state.update_data(haircut=haircut_name)
         print(callback.message.text)
-        await choosing_color(callback.message, state)
+        user_data = await state.get_data()
+        haircut_name = user_data["haircut"]
+        event_logger.handle_event(str(callback.from_user.id), f'Choosed {haircut_name}')
+        await choosing_color(callback.message, callback.from_user.id)
 
     #TO DO bigpolandbro -
     # elif "back" -> show menu
@@ -263,27 +276,33 @@ async def set_color(callback, state):
             reply_markup=KeyboardFactory(callback_prefix="color", current_page=current_page).create_keyboard()
         )
     else:
-        await state.update_data(color=data.split('_')[-1])
+        color = data.split('_')[-1]
+        await state.update_data(color=color)
+        event_logger.handle_event(str(callback.from_user.id), f'Choosed color: {color}')
         await state.set_state(CurrentFunction.generating_photo)
-        await generate_photo(callback.message, state)
+        await generate_photo(callback.message, state, callback.from_user.id)
 
 
-async def choosing_color(message, state):
+async def choosing_color(message, user_id):
     await message.reply("Выбери цвет", reply_markup=KeyboardFactory(callback_prefix="color").create_keyboard())
+    event_logger.handle_event(str(user_id), f'Choosing color')
     await message.delete()
 
 
-async def generate_photo(message, state):
+async def generate_photo(message, state, user_id):
     user_dict = await state.get_data()
+
     print(user_dict)
     if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", None) and user_dict["free_credits"].get(datetime.now().date(), 1) < 1:
         await message.answer_photo(user_dict["blur_image"], caption="На сегодня лимит генераций исчерпан")
+        event_logger.handle_event(str(user_id), f'Generation limit exhausted')
     else:
         file_url = user_dict["file_url"]
         print("before query")
         sent_message = await message.edit_text("Я уже приступил к работе. Обычно она занимает не больше полминуты.")
         try:
-            task = asyncio.create_task(change_hairstyle(file_url, user_dict["haircut"], user_dict["color"]))
+            event_logger.handle_event(str(user_id), f'Create task to change hairstyle')
+            task = asyncio.create_task(change_hairstyle(file_url, user_id, user_dict["haircut"], user_dict["color"], ))
             while not task.done():
                 await sent_message.edit_text("Идет генерация.")
                 time.sleep(1)
@@ -297,15 +316,25 @@ async def generate_photo(message, state):
             print(response)
             if response.startswith("Error"):
                 await message.reply(response)
+                event_logger.handle_event(str(user_id), f'Generating task startswith error')
+
             else:
+                image = Image.open(BytesIO(requests.get(response).content))
+                path_to_save = "generated_images/" + str(datetime.now()) + "_" + str(user_id) + ".png"
+                image.save(path_to_save, format='PNG')
+                event_logger.handle_event(str(user_id), f'Saved image to {path_to_save}')
                 await sent_message.delete()
                 if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", None) and user_dict["free_credits"].get(datetime.now().date(), 1) == 1:
-                    blur_photo = await blur_image(response, message.from_user.id)
+
+                    blur_photo = await blur_image(response, user_id)
                     await state.update_data(blur_image=blur_photo)
+                    event_logger.handle_event(str(user_id), f'Blured image')
                     input_file = FSInputFile(blur_photo)
                     await message.answer_photo(photo=input_file)
+                    event_logger.handle_event(str(user_id), f'Reply blured image')
                 else:
                     await message.answer_photo(photo=response)
+                    event_logger.handle_event(str(user_id), f'Reply generated image')
             await state.set_state(CurrentFunction.wait_photo)
             print("AFTER CHANGING state")
             print(await state.get_data())
@@ -314,33 +343,41 @@ async def generate_photo(message, state):
             if user_dict.get("free_credits", None):
                 if user_dict["free_credits"][datetime.now().date()] > 0:
                     user_dict["free_credits"][datetime.now().date()] = user_dict["free_credits"].get(datetime.now().date(), 2) - 1
+                    event_logger.handle_event(str(user_id), f'First use free credits at day')
                 else:
                     user_dict["credits"] -= 1
+                    event_logger.handle_event(str(user_id), f'Use free credits')
             else:
                 user_dict["free_credits"] = dict()
                 user_dict["free_credits"][datetime.now().date()] = 2 - 1
+                event_logger.handle_event(str(user_id), f'First use free credits')
 
             await state.update_data(free_credits=user_dict["free_credits"])
             if user_dict.get("credits", None):
                 await state.update_data(credits=user_dict["credits"])
-            await send_purchase_offer(message, state)
+            await send_purchase_offer(message, state, user_id)
         except AiLabValueError as e:
-            await message.reply(error_map.get(e.error_code, "Возникла ошибка"))
+            await message.reply(error_map.get(e.error_code, "Возникла ошибка при генерации. Уже вызвали команду фиксиков,"
+                                                            " попробуйте еще раз. Если снова возникнут проблемы, напишите сюда: @andreevoleg22"), parse_mode="Markdown")
+            event_logger.handle_event(str(user_id), f'Generation error occured: {e.error_code}')
 
 
-async def send_purchase_offer(message, state):
+async def send_purchase_offer(message, state, user_id):
     user_data = await state.get_data()
     credits = user_data.get("credits", 0)
     free_credits = user_data["free_credits"].get(datetime.now().date(), 1)
     print("Ваш баланс генераций на сегодня: " + str(free_credits + credits))
     total_credits = free_credits + credits
     await message.answer("Ваш баланс генераций на сегодня: " + str(total_credits), reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
+    event_logger.handle_event(str(user_id), f'Sent purchase offer')
+
 
 @dp.callback_query(F.data.startswith("purchase"))
 async def make_purchase(callback_query: types.CallbackQuery):
+    event_logger.handle_event(str(callback_query.from_user.id), f'Clicked on purchase')
     amount = 200  # Сумма платежа в рублях
     description = "Покупка 10 генераций"
-    payment = await create_payment(amount, description)
+    payment = await create_payment(amount, description, callback_query.from_user.id)
     payment_url = payment.confirmation.confirmation_url
     payment_id = payment.id
 
@@ -361,6 +398,7 @@ async def make_purchase(callback_query: types.CallbackQuery):
 async def confirm_payment(callback_query: types.CallbackQuery, state):
     payment_id = callback_query.data.split(":")[1]
     payment = Payment.find_one(payment_id)
+    event_logger.handle_event(str(callback_query.from_user.id), f'Confirm payment: {payment.status}')
 
     if payment.status == 'succeeded':
         user_dict = await state.get_data()
@@ -373,6 +411,7 @@ async def confirm_payment(callback_query: types.CallbackQuery, state):
 
 @dp.message()
 async def handle_message(message: types.Message, state) -> None:
+    event_logger.handle_event(str(message.from_user.id), f'Get message: {message.text}')
     if message.content_type == ContentType.PHOTO:
         photo = message.photo[-1]
         file_info = await bot.get_file(photo.file_id)
