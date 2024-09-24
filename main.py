@@ -236,7 +236,7 @@ async def set_haircut(callback, state):
 
     elif "_view_" in data:
         haircut_name = data.split('_view_')[-1]
-        photo_path = os.path.join("haircut_photos", f"{haircut_name}.jpeg")
+        photo_path = os.path.join("haircut_photos", f"{haircut_name}.png")
         if os.path.exists(photo_path):
             #with open(photo_path, 'rb') as photo:
             await callback.message.delete()  # Удаляем предыдущие сообщения
