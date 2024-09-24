@@ -117,6 +117,7 @@ haircut_list = [
     "ShortPixieWithShavedSides"
 ]
 
+men_haircut = ["ManBun", "Afro", "Undercut", "MessyTousled",  "UndercutLongHair", "LongWavyCurtainBangs", "LongHairTiedUp"]
 
 color_translation = {
     "blonde": "Блонд",

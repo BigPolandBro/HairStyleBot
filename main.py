@@ -257,16 +257,6 @@ async def set_haircut(callback, state):
         event_logger.handle_event(str(callback.from_user.id) + str(callback.from_user.username), f'Choosed {haircut_name}')
         await choosing_color(callback.message, callback.from_user.id, callback.from_user.username)
 
-    #TO DO bigpolandbro -
-    # elif "back" -> show menu
-    # elif "view" -> add await callback.message.edit_reply_markup( PHOTO
-    #         #     reply_markup=KeyboardFactory(callback_prefix="haircut_show").create_keyboard()
-    #         # )
-    # + add _view_ to buttons in paged_keyboard
-    # elif "choose" -> same as current else
-    # think how to organize options[callback_prefix] ? currently options["haircut"] but I need options["haircut_view"]
-
-
 @dp.callback_query(F.data.startswith("color"))
 async def set_color(callback, state):
     data = callback.data
