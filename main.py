@@ -28,7 +28,9 @@ Configuration.secret_key = YOOKASSA_SECRET_KEY
 
 error_map = {422: "***Формат изображения не подходит.*** \n"
                   "1. Лицо должно занимать не менее 10 процентов кадра \n"
-                  "2. Лицо должно быть направлено прямо,"}
+                  "2. Лицо должно быть направлено прямо \n"
+                  "***Попробуй другое фото, идеально подойдет селфи***"
+             }
 
 event_logger = EventLogger()
 
@@ -154,13 +156,12 @@ async def change_hairstyle(image_url, user_id, user_name, hair_style='Pompadour'
                                               f'Get generated image url: {image_url}')
                     return image_url
                 else:
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(3)
             else:
                 print(f"Ошибка при проверке статуса: {status_response.status_code}")
                 event_logger.handle_event(str(user_id) + str(user_name),
                                           f'Error with generation status checking:{status_response.status_code}')
-
-                break
+                raise AiLabValueError(f"{status_response.status_code}", status_response.status_code)
     else:
         event_logger.handle_event(str(user_id) + str(user_name), f'AiLabValueError:{response.status_code}')
         raise AiLabValueError(f"{response.status_code}", response.status_code)
