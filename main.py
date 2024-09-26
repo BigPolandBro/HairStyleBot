@@ -208,7 +208,7 @@ async def start(message: types.Message, state) -> None:
 
 
 async def choosing_haircut(message, state):
-    await message.reply("Выбирай прическу! Нажми, чтобы увидеть пример. \n"
+    await message.answer("Выбирай прическу! Нажми, чтобы увидеть пример. \n"
                         "[М] - Мужская, [Ж] - Женская", reply_markup=KeyboardFactory(callback_prefix="haircut").create_keyboard())
     event_logger.handle_event(str(message.from_user.id) + str(message.from_user.username), 'Сhoosing_haircut')
     await state.set_state(CurrentFunction.choose_color)
@@ -286,7 +286,7 @@ async def generate_photo(message, state, user_id, user_name):
 
     print(user_dict)
     if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", None) and user_dict["free_credits"].get(datetime.now().date(), 1) < 1:
-        await message.answer_photo(user_dict["blur_image"], caption="На сегодня лимит генераций исчерпан")
+        await message.answer_photo(FSInputFile(user_dict["blur_image"]), caption="На сегодня лимит генераций исчерпан")
         event_logger.handle_event(str(user_id) + str(user_name), f'Generation limit exhausted')
     else:
         file_url = user_dict["file_url"]
@@ -348,6 +348,10 @@ async def generate_photo(message, state, user_id, user_name):
             if user_dict.get("credits", None):
                 await state.update_data(credits=user_dict["credits"])
             await send_purchase_offer(message, state, user_id, user_name)
+            await asyncio.sleep(1)
+            photo_message = user_dict["photo_message"]
+            await photo_message.reply("Сейчас используется это фото. Если хочешь выбрать новое фото, просто пришли его")
+            await choosing_haircut(message, state)
         except AiLabValueError as e:
             await message.reply(error_map.get(e.error_code, "Возникла ошибка при генерации. Уже вызвали команду фиксиков,"
                                                             " попробуйте еще раз. Если снова возникнут проблемы, напишите сюда: @andreevoleg22"), parse_mode="Markdown")
@@ -360,15 +364,15 @@ async def send_purchase_offer(message, state, user_id, user_name):
     free_credits = user_data["free_credits"].get(datetime.now().date(), 1)
     print("Ваш баланс генераций на сегодня: " + str(free_credits + credits))
     total_credits = free_credits + credits
-    await message.answer("Ваш баланс генераций на сегодня: " + str(total_credits), reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
+    await message.answer("Ваш баланс генераций на сегодня: " + str(total_credits) + "\n Каждый день тебе становится доступна одна бесплатная генерация!", reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
     event_logger.handle_event(str(user_id) + str(user_name), f'Sent purchase offer')
 
 
 @dp.callback_query(F.data.startswith("purchase"))
 async def make_purchase(callback_query: types.CallbackQuery):
     event_logger.handle_event(str(callback_query.from_user.id) + str(callback_query.from_user.username), f'Clicked on purchase')
-    amount = 200  # Сумма платежа в рублях
-    description = "Покупка 10 генераций"
+    amount = 50  # Сумма платежа в рублях
+    description = "Покупка генерации"
     payment = await create_payment(amount, description, callback_query.from_user.id, callback_query.from_user.username)
     payment_url = payment.confirmation.confirmation_url
     payment_id = payment.id
@@ -381,7 +385,7 @@ async def make_purchase(callback_query: types.CallbackQuery):
     )
 
     await callback_query.message.edit_text(
-        f"Для того, чтобы купить 10 генераций, оплатите 200 рублей, перейдя по ссылке ниже, а затем нажмите 'Подтвердить оплату'.",
+        f"Для того, чтобы купить 2 генерации, оплатите 50 рублей, перейдя по ссылке ниже, а затем нажмите 'Подтвердить оплату'.",
         reply_markup=keyboard, parse_mode="markdown"
     )
 
@@ -408,7 +412,7 @@ async def handle_message(message: types.Message, state) -> None:
         photo = message.photo[-1]
         file_info = await bot.get_file(photo.file_id)
         file_url = f"https://api.telegram.org/file/bot{bot_token}/{file_info.file_path}"
-        await state.update_data(file_url=file_url)
+        await state.update_data(file_url=file_url, photo_message=message)
         await state.set_state(CurrentFunction.choose_haircut)
         await choosing_haircut(message, state)
     else:
