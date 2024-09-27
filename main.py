@@ -200,17 +200,17 @@ async def start(message: types.Message, state) -> None:
     time.sleep(1)
 
     offer_to_action = (
-        "Просто пришли фото, где твоё лицо занимает не менее 10% кадра.\n\n"
+        "Просто пришли фото, где твоё лицо занимает не менее 10% кадра и смотрит прямо.\n\n"
         "⚠️ Твои фото не сохраняются и никому не передаются.\n\n"
     )
 
     await message.reply(offer_to_action)
 
 
-async def choosing_haircut(message, state):
+async def choosing_haircut(message, state, user_id, user_name):
     await message.answer("Выбирай прическу! Нажми, чтобы увидеть пример. \n"
                         "[М] - Мужская, [Ж] - Женская", reply_markup=KeyboardFactory(callback_prefix="haircut").create_keyboard())
-    event_logger.handle_event(str(message.from_user.id) + str(message.from_user.username), 'Сhoosing_haircut')
+    event_logger.handle_event(str(user_id) + str(user_name), 'Сhoosing_haircut')
     await state.set_state(CurrentFunction.choose_color)
 
 # @dp.callback_query()
@@ -246,7 +246,9 @@ async def set_haircut(callback, state):
             await callback.message.answer_photo(
                 photo=FSInputFile(photo_path),
                 #caption=f"Прическа: {haircut_name}",
-                reply_markup=KeyboardFactory(callback_prefix="haircut_view").create_keyboard()
+                reply_markup=KeyboardFactory(callback_prefix="haircut_view").create_keyboard(),
+                caption="Это ***пример результата***, чтобы сгенерировать такую же прическу, нажми на кнопку \"Хочу такую\"",
+                parse_mode="Markdown"
             )
         event_logger.handle_event(str(callback.from_user.id) + str(callback.from_user.username), f'Watching {haircut_name}')
     elif "_choose" in data:
@@ -285,8 +287,9 @@ async def generate_photo(message, state, user_id, user_name):
     user_dict = await state.get_data()
 
     print(user_dict)
-    if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", None) and user_dict["free_credits"].get(datetime.now().date(), 1) < 1:
-        await message.answer_photo(FSInputFile(user_dict["blur_image"]), caption="На сегодня лимит генераций исчерпан")
+    if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", 2) < 1:
+        await message.answer_photo(FSInputFile(user_dict["blur_image"]), caption="Лимит генераций исчерпан. Чтобы увидеть результат, купи генерации")
+        await send_purchase_offer(message, state, user_id, user_name)
         event_logger.handle_event(str(user_id) + str(user_name), f'Generation limit exhausted')
     else:
         file_url = user_dict["file_url"]
@@ -296,11 +299,11 @@ async def generate_photo(message, state, user_id, user_name):
             event_logger.handle_event(str(user_id) + str(user_name), f'Create task to change hairstyle')
             task = asyncio.create_task(change_hairstyle(file_url, user_id, user_name, user_dict["haircut"], user_dict["color"], ))
             while not task.done():
-                await sent_message.edit_text("Идет генерация.")
+                await sent_message.edit_text("Идет генерация 😉‍️")
                 time.sleep(1)
-                await sent_message.edit_text("Идет генерация..")
+                await sent_message.edit_text("Идет генерация 😜")
                 time.sleep(1)
-                await sent_message.edit_text("Идет генерация...")
+                await sent_message.edit_text("Идет генерация 🤪")
                 time.sleep(1)
             response = await task
             print("after query")
@@ -314,15 +317,15 @@ async def generate_photo(message, state, user_id, user_name):
                 image = Image.open(BytesIO(requests.get(response).content))
                 path_to_save = "generated_images/" + str(datetime.now()) + "_" + str(user_id) + ".png"
                 image.save(path_to_save, format='PNG')
+                await state.update_data(clear_blurred_photo=FSInputFile(path_to_save))
                 event_logger.handle_event(str(user_id) + str(user_name), f'Saved image to {path_to_save}')
                 await sent_message.delete()
-                if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", None) and user_dict["free_credits"].get(datetime.now().date(), 1) == 1:
-
+                if user_dict.get("credits", 0) == 0 and user_dict.get("free_credits", 2) == 1:
                     blur_photo = await blur_image(response, user_id, user_name)
                     await state.update_data(blur_image=blur_photo)
                     event_logger.handle_event(str(user_id) + str(user_name), f'Blured image')
                     input_file = FSInputFile(blur_photo)
-                    await message.answer_photo(photo=input_file)
+                    await message.answer_photo(photo=input_file, caption="Лимит генераций исчерпан. Чтобы увидеть результат, купи генерации")
                     event_logger.handle_event(str(user_id) + str(user_name), f'Reply blured image')
                 else:
                     await message.answer_photo(photo=response)
@@ -332,16 +335,15 @@ async def generate_photo(message, state, user_id, user_name):
             print(await state.get_data())
             print(await state.get_state())
             print(user_dict)
-            if user_dict.get("free_credits", None):
-                if user_dict["free_credits"][datetime.now().date()] > 0:
-                    user_dict["free_credits"][datetime.now().date()] = user_dict["free_credits"].get(datetime.now().date(), 2) - 1
+            if not(user_dict.get("free_credits", None) is None):
+                if user_dict["free_credits"] > 0:
+                    user_dict["free_credits"] = user_dict.get("free_credits", 2) - 1
                     event_logger.handle_event(str(user_id) + str(user_name), f'First use free credits at day')
                 else:
                     user_dict["credits"] -= 1
                     event_logger.handle_event(str(user_id) + str(user_name), f'Use free credits')
             else:
-                user_dict["free_credits"] = dict()
-                user_dict["free_credits"][datetime.now().date()] = 2 - 1
+                user_dict["free_credits"] = 2 - 1
                 event_logger.handle_event(str(user_id) + str(user_name), f'First use free credits')
 
             await state.update_data(free_credits=user_dict["free_credits"])
@@ -351,7 +353,7 @@ async def generate_photo(message, state, user_id, user_name):
             await asyncio.sleep(1)
             photo_message = user_dict["photo_message"]
             await photo_message.reply("Сейчас используется это фото. Если хочешь выбрать новое фото, просто пришли его")
-            await choosing_haircut(message, state)
+            await choosing_haircut(message, state, user_id, user_name)
         except AiLabValueError as e:
             await message.reply(error_map.get(e.error_code, "Возникла ошибка при генерации. Уже вызвали команду фиксиков,"
                                                             " попробуйте еще раз. Если снова возникнут проблемы, напишите сюда: @andreevoleg22"), parse_mode="Markdown")
@@ -361,10 +363,10 @@ async def generate_photo(message, state, user_id, user_name):
 async def send_purchase_offer(message, state, user_id, user_name):
     user_data = await state.get_data()
     credits = user_data.get("credits", 0)
-    free_credits = user_data["free_credits"].get(datetime.now().date(), 1)
+    free_credits = user_data.get("free_credits", 2)
     print("Ваш баланс генераций на сегодня: " + str(free_credits + credits))
     total_credits = free_credits + credits
-    await message.answer("Ваш баланс генераций на сегодня: " + str(total_credits) + "\n Каждый день тебе становится доступна одна бесплатная генерация!", reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
+    await message.answer("Ваш баланс генераций на сегодня: " + str(total_credits), reply_markup=KeyboardFactory(callback_prefix="purchase").create_keyboard())
     event_logger.handle_event(str(user_id) + str(user_name), f'Sent purchase offer')
 
 
@@ -398,11 +400,15 @@ async def confirm_payment(callback_query: types.CallbackQuery, state):
 
     if payment.status == 'succeeded':
         user_dict = await state.get_data()
-        credits = user_dict.get("credits", 0) + 10
+        credits = user_dict.get("credits", 0) + 2
         await state.update_data(credits=credits)
-        await callback_query.message.edit_text("Платеж подтвержден. Спасибо за покупку!")
+        await callback_query.message.edit_text("Платеж подтвержден. Спасибо за покупку! \n Пришли фото, где твоё лицо занимает не менее 10% кадра и смотрит прямо")
+        try:
+            await callback_query.message.answer_photo(photo=user_dict["clear_blurred_photo"])
+        except Exception as e:
+            pass
     else:
-        await callback_query.message.edit_text("Платеж не найден или не подтвержден. Пожалуйста, попробуйте снова или свяжитесь с поддержкой.")
+        await callback_query.message.edit_text("Платеж не найден или не подтвержден. Пожалуйста, попробуйте снова или свяжитесь с поддержкой (@andreevoleg22).")
 
 
 @dp.message()
@@ -414,7 +420,7 @@ async def handle_message(message: types.Message, state) -> None:
         file_url = f"https://api.telegram.org/file/bot{bot_token}/{file_info.file_path}"
         await state.update_data(file_url=file_url, photo_message=message)
         await state.set_state(CurrentFunction.choose_haircut)
-        await choosing_haircut(message, state)
+        await choosing_haircut(message, state, message.from_user.id, message.from_user.username)
     else:
         await message.reply('Присылай фото')
 
