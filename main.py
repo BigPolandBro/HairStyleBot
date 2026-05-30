@@ -15,13 +15,14 @@ from datetime import datetime
 from PIL import Image, ImageFilter
 from yookassa import Configuration, Payment
 from logger import EventLogger
+from dotenv import load_dotenv
 
+load_dotenv()
 
-AILAB_API_KEY = 'Zrn2eyBtf8tC4l2Vj5EdmbSTNYKs0kwDcog3xDyLdqSMMIZqW3EbAeAQFp7xQfsh'
-# AILAB_API_KEY = '0coH412v8qKpVoYJBAi59wesW9MdgGYO36Vrx5qRZ2SckUXIaEAsQrChZtxjOEQF'
+AILAB_API_KEY = os.getenv('AILAB_API_KEY')
 
-YOOKASSA_SHOP_ID = 453462
-YOOKASSA_SECRET_KEY = 'live_4w5f_W3HYzeetUtAFwijENfBrEgrsIVEMY2Yk4LXjZ0'
+YOOKASSA_SHOP_ID = os.getenv('YOOKASSA_SHOP_ID')
+YOOKASSA_SECRET_KEY = os.getenv('YOOKASSA_SECRET_KEY')
 
 Configuration.account_id = YOOKASSA_SHOP_ID
 Configuration.secret_key = YOOKASSA_SECRET_KEY
@@ -170,8 +171,8 @@ async def change_hairstyle(image_url, user_id, user_name, hair_style='Pompadour'
 
 
 
-bot_token = "7326983853:AAFui30SgU-23KWQLHpfsxYv1WDdw9artas"
-replicate_token = "r8_H8O6KTTCLuhocwkOhvJRC7joiu4AvSs41RiwD"
+bot_token = os.getenv('BOT_TOKEN')
+replicate_token = os.getenv('REPLICATE_TOKEN')
 model_version = "cjwbw/night-enhancement:4328e402cfedafa70ad7cec04412e86ab61832204deccd94108ae5222c9b1ae1"
 
 bot = Bot(bot_token)
